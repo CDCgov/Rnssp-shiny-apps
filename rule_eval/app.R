@@ -13,7 +13,8 @@ suppressPackageStartupMessages({
   packages <- c(
     "shiny", "shinyjs", "dplyr", "Rnssp", "purrr",
     "data.table", "lubridate", "shinycssloaders",
-    "plotly", "shinyWidgets", "sf", "shinythemes"
+    "plotly", "shinyWidgets", "sf", "shinythemes",
+    "magrittr"
   )
 })
 
