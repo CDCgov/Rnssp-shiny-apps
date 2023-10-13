@@ -1,0 +1,25 @@
+name: Alerts of Alerts App
+description: >
+  The Alerts of Alerts application computes leading indicator alerts 
+  over three different statewide summary time series. These summary time series 
+  include: 
+  1) statewide CC & DD Category percent (statewide Emergency Department 
+  visits for selected CC & DD Category/total statewide ED visits), 
+  2) the number 
+  of alerting counties/regions in the state (computed using the EWMA/Adaptive 
+  Regression algorithm), and 
+  3) the number of counties whose incidence of the selected CC & DD Category 
+  is estimated to be increasing (using smoothing splines). 
+  
+  In addition to this analysis, the application includes methods to obtain 
+  a more granular investigation of the resulting data. In sequence, these are: 
+  1) visualization of the county-level spatial distribution for a selected date 
+  and for each of the summary time series along with the results of statistical 
+  tests for spatial auto-correlation (clustering) of county-level alerts, and 
+  2) visualization of the time series associated to a selected county. The time 
+  series visualizations partition the plot into the points that occur before and
+  after the date being viewed in the maps. The time series plots associated to 
+  the map plot of counties which are estimated to be icreasing superimposes the
+  smoothing spline which generated the pictured results.  
+author: Joshua Kimrey and Michael Sheppard
+contributors: Raghav Ramachandran
