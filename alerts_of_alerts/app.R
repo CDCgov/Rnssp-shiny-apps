@@ -137,7 +137,7 @@ ccdd_cats <- "https://essence.syndromicsurveillance.org/nssp_essence/api/datasou
   try(silent = TRUE)
 
 if (any(class(ccdd_cats) == "try-error")) {
-  cli::cli_abort("App failed to establish connection with ESSENCE server!
+  cli::cli_abort("App failed to establish connection with NSSP-ESSENCE servers!
                  Check your credentials and try again")
 }
 
