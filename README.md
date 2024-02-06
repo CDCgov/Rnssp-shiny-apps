@@ -20,7 +20,7 @@ run_app("rule_eval")
 Starting from `Rnssp 0.3.0`, RStudio users can run Rnssp shiny apps using Rnssp Addins (see live demo below):
 
 
-![](assets/Run_Rnssp_shiny_apps.gif)
+![](_assets/Run_Rnssp_shiny_apps.gif)
 
 
 ## Contributing to this project
