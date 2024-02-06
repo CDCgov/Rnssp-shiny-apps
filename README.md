@@ -1,10 +1,11 @@
 # Rnssp-shiny-apps
-Rnssp shiny apps are on-demand shiny apps that are specifically designed for the  [`Rnssp`](https://github.com/CDCgov/Rnssp) community of users.
+Rnssp Shiny Apps are custom-built applications tailored for the [`Rnssp`](https://github.com/CDCgov/Rnssp) community of users, providing on-demand tools to enhance user experiences and streamline workflows.
 
-## Run an app
-Although, each app can be downloaded and run separately, we recommend the installation of the  [`Rnssp`](https://github.com/CDCgov/Rnssp) R package. Use the `Rnssp::run_app("<specify app>")` function as depicted in the example below (with `rule_eval` shiny app)
+## How to Run an Rnssp Shiny App
+While each app can be individually downloaded and executed, we highly recommend installing the [`Rnssp`](https://github.com/CDCgov/Rnssp) R package for seamless integration.
 
-From your R console, run `Rnssp::list_apps()` to list the available Rnssp shiny apps.
+Execute `Rnssp::list_apps()` from your R console to obtain a list of availables Rnssp shiny apps, then use the `Rnssp::run_app("<specify app>")` function tor run a specific app as depicted in the example below (with `rule_eval` app).
+
 
 ```r
 library("Rnssp")
