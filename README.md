@@ -1,4 +1,4 @@
-# Rnssp-shiny-apps
+# Rnssp-shiny-apps <a href='https://cdcgov.github.io/Rnssp-rmd-templates'><img src='_assets/logo.png' align="right" height="139" /></a>
 
 Rnssp Shiny Apps are custom-built applications for the [`Rnssp`](https://github.com/CDCgov/Rnssp) community of users, providing on-demand tools to enhance user experiences and streamline workflows.
 
