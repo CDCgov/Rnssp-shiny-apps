@@ -1,4 +1,5 @@
-# Rnssp-shiny-apps
+# Rnssp-shiny-apps <a href='https://github.com/cdcgov/Rnssp-shiny-apps'><img src='_assets/logo.png' align="right" height="139" /></a>
+<hr>
 Rnssp Shiny Apps are custom-built applications for the [`Rnssp`](https://github.com/CDCgov/Rnssp) community of users, providing on-demand tools to enhance user experiences and streamline workflows.
 
 ## How to Run an Rnssp Shiny App
