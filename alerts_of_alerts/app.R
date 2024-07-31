@@ -8,7 +8,7 @@
 #   Michael Sheppard
 #   Raghav Ramachandran
 #   Howard Burkom
-#
+#   Roseric Azondekon
 
 # load libraries
 suppressPackageStartupMessages({
@@ -17,7 +17,7 @@ suppressPackageStartupMessages({
     "data.table", "lubridate", "shinycssloaders",
     "plotly", "shinyWidgets", "sf", "shinythemes",
     "janitor", "tidyverse", "leaflet", "leaflegend",
-    "spdep", "shinydashboard"
+    "spdep", "shinydashboard", "waiter"
   )
 })
 
@@ -126,7 +126,8 @@ state_helper <- state_sf %>%
     state_fips = STATEFP
   )
 
-states <- as.character(state_helper$state_abbr)
+states <- as.character(sort(state_helper$state_name))
+states <- c(states, "All")
 
 # Read in CCDD Categories
 
@@ -137,7 +138,7 @@ ccdd_cats <- "https://essence.syndromicsurveillance.org/nssp_essence/api/datasou
   try(silent = TRUE)
 
 if (any(class(ccdd_cats) == "try-error")) {
-  cli::cli_abort("App failed to establish connection with NSSP-ESSENCE servers!
+  cli::cli_abort("App failed to establish connection with ESSENCE server!
                  Check your credentials and try again")
 }
 
@@ -153,6 +154,7 @@ EndDate_0 <- Sys.Date() %m-%
 
 ui <- tagList(
   useShinyjs(),
+  useWaiter(),
   tags$head(
     HTML(
       "<script>
@@ -178,43 +180,45 @@ ui <- tagList(
     tabPanel(
       "Selectable Options",
       sidebarLayout(
-        sidebarPanel(
-          selectInput("State", "State", states, 'FL'),
-          selectInput("CCDD", "CCDD", ccdd_cats, 
-                      ccdd_cats[which(grepl("COVID-Specific", ccdd_cats))]),
-          fluidRow(
-            column(
-              6,
-              dateInput(inputId = "StartDate", label = "Start Date", 
-                        value = StartDate_0)
-            ),
-            column(
-              6,
-              dateInput(inputId = "EndDate", label = "End Date", 
-                        value = EndDate_0)
-            )
-          ),
-          actionButton("go", "Load Data")
-        ),
+        sidebarPanel(width=3,
+                     helpPopup(
+                       id = "", title = "",
+                       content = paste0(
+                         "This app computes and tests for temporal alerts in 3 statewide ",
+                         "diagnostics of syndrome severity given a user-selected state, ",
+                         "CC and DD category, and date range. The 3 diagnostics are: 1) ",
+                         "total statewide percent of ED visits, 2) number of alerting ",
+                         "counties/regions, and 3) the number of counties/regions ",
+                         "estimated to have increasing case counts. The second two ",
+                         "diagnostics have been labelled 'Alerts of Alerts'. Data ",
+                         "associated to each selected date can be visualized as a set of ",
+                         "choropleth maps along with the results of statistical tests ",
+                         "for spatial autocorrelation (i.e., spatial clustering)."
+                       ),
+                       placement = "right", trigger = "focus",
+                       icon_name = "question-circle",
+                       icon_style = "color:blue;font-size:15px"
+                     ),
+                     selectInput("State", "State", states, 'Idaho'),
+                     selectInput("CCDD", "CC & DD Category", ccdd_cats, 
+                                 ccdd_cats[which(grepl("COVID-Specific", ccdd_cats))]),
+                     fluidRow(
+                       column(
+                         6,
+                         dateInput(inputId = "StartDate", label = "Start Date", 
+                                   value = StartDate_0)
+                       ),
+                       column(
+                         6,
+                         dateInput(inputId = "EndDate", label = "End Date", 
+                                   value = EndDate_0, max = EndDate_0)
+                       ),
+                       tags$style(HTML(".datepicker {z-index:99999 !important;}"))
+                     ),
+                     actionButton("go", "Load Data"),
+                     downloadButton(outputId = "report", "Download Report")
+                     ),
         mainPanel(
-          helpPopup(
-            id = "", title = "",
-            content = paste0(
-              "This app computes and test for temporal alerts in 3 statewide ",
-              "diagnostics of syndrome severity given a user-selected state, ",
-              "CC and DD category, and date range. The 3 diagnostics are: 1) ",
-              "total statewide percent of ED visits, 2) number of alerting ",
-              "counties/regions, and 3) the number of counties/regions ",
-              "estimated to have increasing case counts. The second two ",
-              "diagnostics have been labelled 'Alerts of Alerts'. Data ",
-              "associated to each date can be visualized as a set of ",
-              "choropleth maps along with the results of statistical tests ",
-              "for spatial autocorrelation (i.e., spatial clustering)."
-            ),
-            placement = "right", trigger = "focus",
-            icon_name = "question-circle",
-            icon_style = "color:blue;font-size:15px"
-          ),
           fluidRow(
             box(helpPopup(id = "", title = "",
                           content = paste0("This plot uses the <a href=",
@@ -256,7 +260,7 @@ ui <- tagList(
                           icon_style = "color:blue;font-size:10px"),
                 title = h3("Spatial Distribution of p-values", 
                            style = 'font-size:18px; font-weight: bold; height: 30px'),
-                leafletOutput("p_choropleth", height = "300px"),
+                withSpinner(leafletOutput("p_choropleth", height = "300px")),
                 box(h3(textOutput('date1'), 
                        style = 'font-size:14px; font-weight: bold;'),
                     h1(textOutput('globalmoran'), style = 'font-size:14px;')),
@@ -277,8 +281,8 @@ ui <- tagList(
                           icon_name = "question-circle",
                           icon_style = "color:blue;font-size:10px"),
                 title = h3("Spatial Distribution of Alerts", 
-                           style = 'font-size:18px; font-weight: bold; height: 30px'),
-                leafletOutput("alerts_choropleth", height = "300px"),
+                           style = 'font-size:18px; font-weight: bold; height: 30px; color: rgb(22, 96, 167)'),
+                withSpinner(leafletOutput("alerts_choropleth", height = "300px")),
                 box(h3(textOutput('date2'), 
                        style = 'font-size:14px; font-weight: bold;'),
                     h1(textOutput('joincount_alert'), 
@@ -299,8 +303,9 @@ ui <- tagList(
                           placement = "bottom", trigger = "focus",
                           icon_name = "question-circle",
                           icon_style = "color:blue;font-size:10px"),
-                title = h3("Spatial Distribution of Smoothed Slopes", style = 'font-size:18px; font-weight: bold; height: 30px'),
-                leafletOutput("increasing_choropleth", height = "300px"),
+                title = h3("Spatial Distribution of Smoothed Slopes", 
+                           style = 'font-size:18px; font-weight: bold; height: 30px; color: rgb(60, 0, 155)'),
+                withSpinner(leafletOutput("increasing_choropleth", height = "300px")),
                 box(h3(textOutput('date3'), style = 'font-size:14px; font-weight: bold;'),
                     h1(textOutput('joincount_inc'), style = 'font-size:14px;')),
                 width = 4)
@@ -311,7 +316,7 @@ ui <- tagList(
   )
 )
 
-# Server object; event handler
+# Server object
 
 server <- function(input, output, session) {
   options(warn = -1)
@@ -322,9 +327,14 @@ server <- function(input, output, session) {
     paste("keep alive ", input$count)
   })
   
-  Reactive_dfs <- reactiveValues(df_1 = NULL, df_2 = NULL, state_sf = NULL)
-  selected_state <- reactiveValues(state = NULL)
-  selected_date <- reactiveValues(date = NULL)
+  Reactive_dfs <- reactiveValues(df_1 = NULL, df_2 = NULL)
+  selected_state <- reactiveValues(fp = NULL, state_sf = NULL, 
+                                   county_sf = NULL, df_sf = NULL)
+  
+  selected <- reactiveValues(state = NULL, CCDD = NULL, startDate = NULL, endDate = NULL, maps_date = NULL)
+  stat_test <- reactiveValues(globalMoran=NULL, JoinCount_alert=NULL,
+                              JoinCount_warning_or_alert=NULL,
+                              JoinCount_increasing=NULL)
   
   spline_classifier <- function(df, t, y) {
     
@@ -353,14 +363,24 @@ server <- function(input, output, session) {
       ) %>%
       arrange(category)
     
-    # filter state-associated fips
-    fips_for_url <- county_sf %>%
-      rename(state_fips = STATEFP) %>%
-      left_join(state_helper, by = "state_fips") %>%
-      filter(state_abbr == input$State) %>%
-      pull(GEOID) %>%
-      as.character() %>%
-      paste0(., collapse = "&facilityfips=")
+    if (input$State == 'All') {
+      # obtain all U.S. fips
+      fips_for_url <- county_sf %>%
+        rename(state_fips = STATEFP) %>%
+        left_join(state_helper, by = "state_fips") %>%
+        pull(GEOID) %>%
+        as.character() %>%
+        paste0(., collapse = "&facilityfips=")
+    } else {
+      # filter state-associated fips
+      fips_for_url <- county_sf %>%
+        rename(state_fips = STATEFP) %>%
+        left_join(state_helper, by = "state_fips") %>%
+        filter(state_name == input$State) %>%
+        pull(GEOID) %>%
+        as.character() %>%
+        paste0(., collapse = "&facilityfips=")
+      }
     
     # CCDD category
     category_for_url <- ccdd_list %>%
@@ -372,9 +392,7 @@ server <- function(input, output, session) {
                   "&medicalGroupingSystem=essencesyndromes&userId=2362&multiStratVal=facilityfips&endDate=", 
                   format(input$EndDate, "%d%b%Y"), "&facilityfips=", fips_for_url, "&percentParam=ccddCategory",
                   "&graphOptions=multiplesmall&aqtTarget=TimeSeries&ccddCategory=", category_for_url, 
-                  "&geographySystem=hospital&detector=probrepswitch&removeZeroSeries=true&timeResolution=daily&hasBeenE=1")#,
-    #"&field=date&field=alert_percent&field=alert_count&field=line_label&field=facilityfips_id&field=data_count",
-    #"&field=all_count&field=count&field=levels")
+                  "&geographySystem=hospital&detector=probrepswitch&removeZeroSeries=true&timeResolution=daily&hasBeenE=1")
     
     df <- myProfile$get_api_data(url) %>%
       pluck("timeSeriesData") %>%
@@ -423,13 +441,20 @@ server <- function(input, output, session) {
     # Compute alerts over state-wide CCDD % df
     
     df_switch_percent <- df %>% 
-      group_by(date)  %>%
+      group_by(date) %>%
       summarise(total_CCDD = sum(data_count),
                 total_all = sum(all_count),
-                .groups = 'drop') %>% 
-      mutate(percent = total_CCDD/total_all) %>%
+                .groups = 'drop') %>%
+      mutate(percent = total_CCDD / total_all) %>%
+      { 
+        nan_dates <- .$date[is.nan(.$percent)]
+        if(length(nan_dates) > 0) { 
+          warning(paste("0 statewide visits reported for dates:", paste(nan_dates, collapse = ", "), ". CCDD % treated as 0."))
+        } 
+        mutate(., percent = ifelse(is.nan(percent), 0, percent))
+      } %>%
       select(date, percent) %>%
-      alert_switch(., t=date, y=percent) %>%
+      alert_switch(., t = date, y = percent) %>%
       select(
         date,
         percent,
@@ -485,8 +510,8 @@ server <- function(input, output, session) {
       mutate(
         row = row_number(), 
         trajectory = case_when(
-          abs(deriv1) < 0.01 ~ "Stable", 
-          deriv1 <= -0.01 ~ "Decreasing", 
+          abs(deriv1) < 0.01 ~ "Stable",
+          deriv1 <= -0.01 ~ "Decreasing",
           deriv1 >= 0.01 ~ "Increasing"
         )
       ) %>%
@@ -559,402 +584,434 @@ server <- function(input, output, session) {
     return(list(df_all, ed_county_waves))
   }
   
-  observeEvent(input$go, {
-    hideElement("p_choropleth")
-    hideElement("alerts_choropleth")
-    hideElement("increasing_choropleth")
-    hideElement("joincount_alert")
-    hideElement("joincount_warning_or_alert")
-    hideElement("joincount_inc")
-    hideElement("globalmoran")
-    hideElement("date1")
-    hideElement("date2")
-    hideElement("date3")
+  compute_and_assign_mapping_output_reactives <- reactive({
     
-    dfs <- get_and_mutate_dfs(input)
+    JoinCount_alert <- NULL
+    JoinCount_warning_or_alert = NULL
+    JoinCount_increasing = NULL
+    globalMoran = NULL
+    
+    output$date1 <- renderText({selected$maps_date})
+    output$date2 <- renderText({selected$maps_date})
+    output$date3 <- renderText({selected$maps_date})
+    
+    selected_state$df_sf = st_as_sf(right_join(Reactive_dfs$df_2[Reactive_dfs$df_2$date == selected$maps_date,], selected_state$county_sf[,c("NAME","GEOID","geometry")], by = c("fips" = "GEOID")))
+    
+    if (input$State == "All") {
+      lookup_table <- st_drop_geometry(selected_state$df_sf) %>%
+        filter(!is.na(state_abbr)) %>%
+        mutate(fips_prefix = substr(fips, 1, 2)) %>%
+        select(fips_prefix, state_abbr) %>%
+        mutate(state_abbr = ifelse(state_abbr == "District of Columbia", "DC", state_abbr)) %>%
+        distinct()
+      
+      selected_state$df_sf = selected_state$df_sf %>%
+        mutate(fips_prefix = substr(fips, 1, 2)) %>%
+        left_join(lookup_table, by = "fips_prefix", suffix = c("", "_lookup")) %>%
+        mutate(state_abbr = ifelse(is.na(state_abbr), state_abbr_lookup, state_abbr)) %>%
+        mutate(NAME = paste(NAME, state_abbr, sep = ", ")) %>%
+        select(-fips_prefix, -state_abbr_lookup)
+    }
+    
+    # get non-null rows for analysis
+    df_sf_non_null = selected_state$df_sf[!is.na(selected_state$df_sf$county),]
+    #assign("selected_state_df_sf", selected_state$df_sf, envir=.GlobalEnv)
+    assign("df_sf_non_null", df_sf_non_null, envir=.GlobalEnv)
+    
+    if (nrow(df_sf_non_null) > 0) {
+      # Compute local moran df
+      pts <- st_centroid(st_transform(df_sf_non_null, 3857))
+      #> Warning: st_centroid assumes attributes are constant over geometries of x
+      nb <- dnearneigh(pts, 0, 1000000)
+      # Moran's I with Inverse Distance Weighting with alpha(exponent) = 1
+      listw <- nb2listwdist(nb, as(pts, "Spatial"), type = "idw",
+                            alpha = 1, zero.policy = TRUE, style = "raw")
+      
+      # check for 0 counties in each of the bins: alerting, increasing
+      if (nlevels(factor(df_sf_non_null$alert_percent_factor)) > 1) {
+        JoinCount_alert <- joincount.test(factor(df_sf_non_null$alert_percent_factor), listw, alternative = 'greater')
+      } 
+      
+      if (nlevels(factor(df_sf_non_null$warning_or_alert_percent_factor)) > 1) {
+        JoinCount_warning_or_alert <- joincount.test(factor(df_sf_non_null$warning_or_alert_percent_factor), listw, alternative = 'greater')
+      } 
+      
+      if (nlevels(factor(df_sf_non_null$inc_factor)) > 1) {
+        JoinCount_increasing <- joincount.test(factor(df_sf_non_null$inc_factor), listw, alternative = 'greater')
+      }
+      
+      globalMoran <- tryCatch(
+        moran.test(df_sf_non_null$p, listw, alternative = 'greater'),
+        error = function(e) NULL
+        )
+    }
+    
+    stat_test$JoinCount_alert = ifelse(is.null(JoinCount_alert), "NA", round(JoinCount_alert[[2]]$p.value[[1]],3))
+    stat_test$JoinCount_warning_or_alert = ifelse(is.null(JoinCount_warning_or_alert), "NA", round(JoinCount_warning_or_alert[[2]]$p.value[[1]],3))
+    stat_test$JoinCount_increasing = ifelse(is.null(JoinCount_increasing), "NA", round(JoinCount_increasing[[2]]$p.value[[1]],3))
+    stat_test$globalMoran = ifelse(is.null(globalMoran$p.value), "NA", round(globalMoran$p.value,3))
+    
+    output$globalmoran <- renderText({paste0("Global Moran's I p-value: ", stat_test$globalMoran)})
+    output$joincount_alert <- renderText({paste0("Join Count 'Alert' p-value: ", stat_test$JoinCount_alert)})
+    output$joincount_warning_or_alert <- renderText({paste0("Join Count 'Alert' or 'Warning' p-value: ", stat_test$JoinCount_warning_or_alert)})
+    output$joincount_inc <- renderText({paste0("Join Count 'Increasing' p-value: ", stat_test$JoinCount_increasing)})
+  })
+  
+  plotly_plot = reactive({
+    percent_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~percent, type = "scatter", mode = "lines+markers",
+                            marker = list(color= ~alert_percent, size=25/log(dim(Reactive_dfs$df_1)[1])),
+                            line = list(color="gray", width=12/log(dim(Reactive_dfs$df_1)[1])),
+                            hoverinfo = "text",
+                            text = ~ paste(
+                              "<br>Date:</b>", date,
+                              "<br>%:</b>", format(percent, big.mark = ",")
+                            ),
+                            name = "% CCDD")
+    
+    alert_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~count, type = 'scatter', mode = 'lines+markers',
+                          marker = list(color = ~alert_alert, size=25/log(dim(Reactive_dfs$df_1)[1])),
+                          line = list(color = "rgb(22, 96, 167)", width = 12/log(dim(Reactive_dfs$df_1)[1])),
+                          hoverinfo = "text",
+                          text = ~ paste(
+                            "<br>Date:</b>", date,
+                            "<br>Count:</b>", format(count, big.mark = ",")
+                          ),
+                          name = "Count of Alerting Regions")
+    
+    trending_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~n_increasing, type = 'scatter', mode = 'lines+markers',
+                             marker = list(color = ~alert_trend, size=25/log(dim(Reactive_dfs$df_1)[1])),
+                             line = list(color = "rgb(60, 0, 155)", width = 12/log(dim(Reactive_dfs$df_1)[1])),
+                             hoverinfo = "text",
+                             text = ~ paste(
+                               "<br>Date:</b>", date,
+                               "<br># Increasing:</b>", format(n_increasing, big.mark = ",")
+                             ),
+                             name = "Count of Increasing Regions")
+    # subplots object
+    plt <- subplot(percent_plot, alert_plot, trending_plot, nrows = 3, shareX = TRUE) %>%
+      layout(title = list(text = paste0(selected$state,': ', selected$CCDD), x = 0.4),
+             hovermode = "x unified",
+             xaxis = list(
+               title = "<b>Date<b>",
+               showspikes = TRUE,
+               spikemode = "across",
+               ticks = "outside",
+               spikedash = "dot",
+               spikecolor = "black",
+               spikethickness = -2,
+               tickformat="%m/%d/%y",
+               ticklabelmode="period",
+               tickangle = 0
+             ),
+             yaxis = list(
+               title = list(text=paste0("<b>%</b>"),
+                            font = list(
+                              color = "grey")),
+               tickfont = list(color = "grey"), # 0s are offset
+               showline = TRUE,
+               showgrid = TRUE,
+               rangemode = 'tozero',
+               ticks = "outside",
+               showgrid = FALSE
+             ),
+             yaxis2 = list(
+               title = list(text = "<b>Alerts<b>",
+                            font = list(
+                              color = "rgb(22, 96, 167)")),
+               tickfont = list(color = "rgb(22, 96, 167)"),
+               showline = TRUE,
+               showgrid = TRUE,
+               rangemode = "tozero",
+               ticks = "outside"
+             ),
+             yaxis3 = list(
+               title = list(text = "<b>Rising<b>",
+                            font = list(
+                              color = "rgb(60, 0, 155)")),
+               tickfont = list(color = "rgb(60, 0, 155)"),
+               showline = TRUE,
+               showgrid = TRUE,
+               rangemode = "tozero",
+               ticks = "outside"
+             ),
+             shapes = list(
+               type = "line",
+               x0 = selected$maps_date,
+               x1 = selected$maps_date,
+               y0 = 0,
+               y1 = 1,
+               yref = 'paper',
+               line = list(color = "black", dash='dash', width = 2)
+             )
+      ) %>%
+      event_register(.,'plotly_click')
+    
+    plt %>%
+      config(modeBarButtons = list(list("toImage"), list("autoScale2d")))
+  })
+    
+  ##------------Plot Leaflet Choropleths---------------------------
+  
+  leaflet_p_choropleth = reactive({
+    labels_p <- sprintf(
+      "<strong>County: </strong>%s<br/>
+        <strong>P-value: </strong>%s<br/>
+        <strong>Percent: </strong>%s<br/>",
+      selected_state$df_sf$NAME,
+      selected_state$df_sf$p,
+      selected_state$df_sf$percent
+    ) %>%
+      lapply(htmltools::HTML)
+    
+    pal_p <- colorNumeric(
+      palette = colorRampPalette(c('red','yellow','blue'), bias=log(0.1)/log(0.5))(100), #length(df_sf$p) 
+      domain = c(0,1),
+      na.color = "black",
+      alpha = TRUE)
+    
+    p_leaf <-
+      leaflet() %>%
+      leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
+      addPolylines(
+        data = selected_state$state_sf,
+        opacity = 1,
+        fillOpacity = 0,
+        color = "black", 
+        weight = 1.2
+      ) %>%
+      addPolygons(
+        data = selected_state$df_sf,
+        layerId=~NAME,
+        stroke = TRUE,
+        smoothFactor = 0.5,
+        color = "black",
+        fillColor = ~pal_p(p),
+        weight = 1.0,
+        opacity = 0.2,
+        fillOpacity = 0.5,
+        highlight = highlightOptions(
+          weight = 1,
+          color = "black",
+          fillOpacity = 0.7,
+          opacity = 1.0
+        ),
+        label = labels_p,
+        labelOptions = labelOptions(
+          style = list(
+            "font-weight" = "normal",
+            padding = "3px 8px"
+          ),
+          textsize = "12px",
+          direction = "auto"
+        ),
+        group = 'counties'
+      ) %>%
+      addLegendNumeric(
+        orientation = 'horizontal',
+        height = 20,
+        width = 120,
+        bins = 11,
+        position = "bottomright",
+        title = "P-value",
+        pal = pal_p,
+        values = seq(from = 0, to = 1, length.out = 100), #df_sf$p,
+        fillOpacity = 0.5
+      )
+  })
+  
+  leaflet_alerts_choropleth = reactive({
+    # leaflet alerts plot
+    labels_alerts <- sprintf(
+      "<strong>County: </strong>%s<br/>
+         <strong>Alert: </strong>%s<br/>
+         <strong>p-value: </strong>%s<br/>", 
+      selected_state$df_sf$NAME,
+      selected_state$df_sf$alert_percent,
+      selected_state$df_sf$p
+    ) %>%
+      lapply(htmltools::HTML)
+    
+    pal_alerts <- colorFactor(
+      palette = c('blue','yellow','red'), 
+      levels = c('None', 'Warning', 'Alert'),
+      na.color = "black")
+    
+    alert_leaf <- leaflet() %>%
+      leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
+      addPolylines(
+        data = selected_state$state_sf,
+        opacity = 1,
+        fillOpacity = 0,
+        color = "black", 
+        weight = 1.2
+      ) %>%
+      addPolygons(
+        data = selected_state$df_sf,
+        layerId=~NAME,
+        stroke = TRUE,
+        smoothFactor = 0.5,
+        color = "black",
+        fillColor = ~pal_alerts(alert_percent),
+        weight = 1.0,
+        opacity = 0.2,
+        fillOpacity = 0.5,
+        highlight = highlightOptions(
+          weight = 1,
+          color = "black",
+          fillOpacity = 0.7,
+          opacity = 1.0
+        ),
+        label = labels_alerts,
+        labelOptions = labelOptions(
+          style = list(
+            "font-weight" = "normal",
+            padding = "3px 8px"
+          ),
+          textsize = "12px",
+          direction = "auto"
+        )
+      ) %>%
+      addLegendFactor(
+        position = "bottomright",
+        height = 8,
+        width = 10,
+        title = "Alerts",
+        labelStyle = 'font-size: 12px;',
+        pal = pal_alerts,
+        values = selected_state$df_sf$alert_percent,
+        fillOpacity = 0.5
+      )
+  })
+  
+  leaflet_increasing_choropleth = reactive({
+    labels_inc <- sprintf(
+      "<strong>County: </strong>%s<br/>
+        <strong>Slope: </strong>%s<br/>",
+      selected_state$df_sf$NAME,
+      round(selected_state$df_sf$deriv1, digits = 3)
+    ) %>%
+      lapply(htmltools::HTML)
+    
+    pal_inc <- colorFactor(
+      palette = c('blue','yellow','red'), 
+      levels = c('Decreasing', 'Stable', 'Increasing'),
+      na.color = "black")
+    
+    inc_leaf <-
+      leaflet() %>%
+      leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
+      addPolylines(
+        data = selected_state$state_sf,
+        opacity = 1,
+        fillOpacity = 0,
+        color = "black", 
+        weight = 1.2
+      ) %>%
+      addPolygons(
+        data = selected_state$df_sf,
+        layerId=~NAME,
+        stroke = TRUE,
+        smoothFactor = 0.5,
+        color = "black",
+        fillColor = ~pal_inc(trajectory),
+        weight = 1.0,
+        opacity = 0.2,
+        fillOpacity = 0.5,
+        highlight = highlightOptions(
+          weight = 1,
+          color = "black",
+          fillOpacity = 0.7,
+          opacity = 1.0
+        ),
+        label = labels_inc,
+        labelOptions = labelOptions(
+          style = list(
+            "font-weight" = "normal",
+            padding = "3px 8px"
+          ),
+          textsize = "12px",
+          direction = "auto"
+        )
+      ) %>%
+      addLegendFactor(
+        position = "bottomright",
+        height = 8,
+        width = 10,
+        title = "Increasing",
+        labelStyle = 'font-size: 12px;',
+        pal = pal_inc,
+        values = selected_state$df_sf$trajectory,
+        fillOpacity = 0.5
+      )
+  })
+  
+  # Alerts time series Plotly time series
+  output$tsPlotly <- renderPlotly({
+    if (!is.null(Reactive_dfs$df_1)) {
+      plotly_plot()
+    }
+  })
+  
+  # P-value choropleth map
+  output$p_choropleth <- renderLeaflet({
+    if (!is.null(selected_state$df_sf)) {
+      leaflet_p_choropleth()
+    }
+  })
+  
+  # Alerts choropleth map
+  output$alerts_choropleth <- renderLeaflet({
+    if (!is.null(selected_state$df_sf)) {
+      leaflet_alerts_choropleth()
+    }
+  })
+  
+  # Smoothed slope bins choropleth map
+  output$increasing_choropleth <- renderLeaflet({
+    if (!is.null(selected_state$df_sf)) {
+      leaflet_increasing_choropleth()
+      }
+    })
+  
+  observeEvent(input$go, {
+    
+    waiter_show(html = spin_loaders(6))
+    withProgress(
+    dfs <- get_and_mutate_dfs(input),
+    message="Loading data...", value = 0.99
+    )
+    waiter_hide()
     
     # Update the reactive values
     Reactive_dfs$df_1 <- dfs[[1]]
     Reactive_dfs$df_2 <- dfs[[2]]
     
-    selected_state$state <- state_sf %>% filter(STUSPS == input$State)
-  })
-  
-  # time series subplots reactive element
-  oPlot <- eventReactive(
-    input$go,
-    {
-      alert_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~count, type = 'scatter', mode = 'lines+markers',
-                            marker = list(color = ~alert_alert, size=25/log(dim(Reactive_dfs$df_1)[1])),
-                            line = list(color = "rgb(22, 96, 167)", width = 12/log(dim(Reactive_dfs$df_1)[1])),
-                            hoverinfo = "text",
-                            text = ~ paste(
-                              "<br>Date:</b>", date,
-                              "<br>Count:</b>", format(count, big.mark = ",")
-                            ),
-                            name = "Count of Alerting Regions")
-      
-      percent_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~percent, type = "scatter", mode = "lines+markers",
-                              marker = list(color= ~alert_percent, size=25/log(dim(Reactive_dfs$df_1)[1])),
-                              line = list(color="gray", width=12/log(dim(Reactive_dfs$df_1)[1])),
-                              hoverinfo = "text",
-                              text = ~ paste(
-                                "<br>Date:</b>", date,
-                                "<br>%:</b>", format(percent, big.mark = ",")
-                              ),
-                              name = "% CCDD")
-      
-      trending_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~n_increasing, type = 'scatter', mode = 'lines+markers',
-                               marker = list(color = ~alert_trend, size=25/log(dim(Reactive_dfs$df_1)[1])),
-                               line = list(color = "rgb(60, 0, 155)", width = 12/log(dim(Reactive_dfs$df_1)[1])),
-                               hoverinfo = "text",
-                               text = ~ paste(
-                                 "<br>Date:</b>", date,
-                                 "<br># Increasing:</b>", format(n_increasing, big.mark = ",")
-                               ),
-                               name = "Count of Increasing Regions")
-      # subplots object
-      plt <- subplot(percent_plot, alert_plot, trending_plot, nrows = 3, shareX = TRUE, margin = c(0.02, 0.02, 0.02, 0.02)) %>%
-        layout(title = list(text = paste0("<b>", input$State,' ',input$CCDD,"<b>"), x = 0.5),
-               hovermode = "x unified",
-               xaxis = list(
-                 title = "<b>Date<b>",
-                 showspikes = TRUE,
-                 spikemode = "across",
-                 ticks = "outside",
-                 spikedash = "dot",
-                 spikecolor = "black",
-                 spikethickness = -2,
-                 tickformat="%b %d %Y",
-                 ticklabelmode="period",
-                 tickangle = 45
-               ),
-               yaxis = list(
-                 title = list(text=paste0("<b>%</b>"),
-                              font = list(
-                                color = "grey")),
-                 tickfont = list(color = "grey"), # 0s are offset
-                 showline = TRUE,
-                 showgrid = TRUE,
-                 rangemode = 'tozero',
-                 ticks = "outside",
-                 showgrid = FALSE
-               ),
-               yaxis2 = list(
-                 title = list(text = "<b>Alerts<b>",
-                              font = list(
-                                color = "rgb(22, 96, 167)")),
-                 tickfont = list(color = "rgb(22, 96, 167)"),
-                 showline = TRUE,
-                 showgrid = TRUE,
-                 rangemode = "tozero",
-                 ticks = "outside"
-               ),
-               yaxis3 = list(
-                 title = list(text = "<b>Rising<b>",
-                              font = list(
-                                color = "rgb(60, 0, 155)")),
-                 tickfont = list(color = "rgb(60, 0, 155)"),
-                 showline = TRUE,
-                 showgrid = TRUE,
-                 rangemode = "tozero",
-                 ticks = "outside"
-               )
-        ) %>%
-        event_register(.,'plotly_click')
-      
-      plt %>%
-        config(modeBarButtons = list(list("toImage"), list("autoScale2d")))
-    })
-  
-  # Outputs
-  
-  # Alerts time series
-  output$tsPlotly <- renderPlotly({
-    oPlot()
+    assign("Reactive_dfs_df2", Reactive_dfs$df_2, envir=.GlobalEnv)
+    
+    # Assign selected reactives for plotly title
+    selected$state = input$State
+    selected$CCDD = input$CCDD
+    
+    # Get selected state geometry
+    if (input$State == 'All'){
+      selected_state$fp = state_helper$state_fips
+      selected_state$state_sf = state_sf
+      selected_state$county_sf = county_sf
+    } else {
+      selected_state$fp = state_helper[state_helper$state_name == input$State,]$state_fips
+      selected_state$state_sf = state_sf[state_sf$STATEFP == selected_state$fp,]
+      selected_state$county_sf = county_sf[county_sf$STATEFP == selected_state$fp,]
+    }
+    selected$startDate = as.character(input$StartDate)
+    selected$endDate = as.character(input$EndDate)
+    selected$maps_date = as.character(input$EndDate)
+    
+    compute_and_assign_mapping_output_reactives()
   })
   
   observeEvent(event_data("plotly_click", source = 'plotlyts'), {
-    showElement("p_choropleth")
-    showElement("alerts_choropleth")
-    showElement("increasing_choropleth")
-    showElement("joincount_alert")
-    showElement("joincount_warning_or_alert")
-    showElement("joincount_inc")
-    showElement("globalmoran")
-    showElement("date1")
-    showElement("date2")
-    showElement("date3")
-    
-    selected_date$date <- event_data("plotly_click", source = 'plotlyts')$x
-    output$date1 <- renderText({selected_date$date})
-    output$date2 <- renderText({selected_date$date})
-    output$date3 <- renderText({selected_date$date})
-    
-    # Get selected state geometry
-    selected_state_sf = county_sf %>% filter(STATEFP == as.integer(substr(Reactive_dfs$df_2$fips[1], start = 1, stop = 2)))
-    Reactive_dfs$state_sf = selected_state_sf
-    
-    ##----------------Choropleth coloration-----------------------
-    
-    # Slice alerts df
-    df_sf = st_as_sf(right_join(Reactive_dfs$df_2[Reactive_dfs$df_2$date == selected_date$date,], selected_state_sf[,c("NAME","GEOID","geometry")], by = c("fips" = "GEOID")))
-    
-    # get non-null rows for analysis
-    df_sf_non_null = df_sf[!is.na(df_sf$county),]
-    
-    # Compute local moran df
-    pts <- st_centroid(st_transform(df_sf_non_null, 3857))
-    #> Warning: st_centroid assumes attributes are constant over geometries of x
-    nb <- dnearneigh(pts, 0, 1000000)
-    # Moran's I with Inverse Distance Weighting with alpha(exponent) = 1
-    listw <- nb2listwdist(nb, as(pts, "Spatial"), type = "idw",
-                          alpha = 1, zero.policy = TRUE, style = "raw")
-    
-    # check for 0 counties in each of the bins: alerting, increasing 
-    if (nlevels(factor(df_sf_non_null$alert_percent_factor)) > 1) {
-      JoinCount_alert <- joincount.test(factor(df_sf_non_null$alert_percent_factor), listw, alternative = 'greater')
-    } else {
-      JoinCount_alert <- NULL
-    }
-    
-    if (nlevels(factor(df_sf_non_null$warning_or_alert_percent_factor)) > 1) {
-      JoinCount_warning_or_alert <- joincount.test(factor(df_sf_non_null$warning_or_alert_percent_factor), listw, alternative = 'greater')
-    } else {
-      JoinCount_warning_or_alert = NULL
-    }
-    
-    if (nlevels(factor(df_sf_non_null$inc_factor)) > 1) {
-      JoinCount_increasing <- joincount.test(factor(df_sf_non_null$inc_factor), listw, alternative = 'greater')
-    } else {
-      JoinCount_increasing = NULL
-    }
-    
-    globalMoran <- moran.test(df_sf_non_null$p, listw, alternative = 'greater')
-    
-    # renderText({paste0("Join Count 'Alert' p-value: ", ifelse(is.null(JoinCount_alert), "<b>NA</b>", paste("<B>",round(JoinCount_alert[[2]]$p.value[[1]],3),"</B>")))})
-    output$globalmoran <- renderText({paste0("Global Moran's I p-value: ", round(globalMoran$p.value,3))})
-    
-    output$joincount_alert <- renderText({paste0("Join Count 'Alert' p-value: ", ifelse(is.null(JoinCount_alert), "NA", round(JoinCount_alert[[2]]$p.value[[1]],3)))})
-    output$joincount_warning_or_alert <- renderText({paste0("Join Count 'Alert' or 'Warning' p-value: ", ifelse(is.null(JoinCount_warning_or_alert), "NA", round(JoinCount_warning_or_alert[[2]]$p.value[[1]],3)))})
-    
-    output$joincount_inc <- renderText({paste0("Join Count 'Increasing' p-value: ", ifelse(is.null(JoinCount_increasing), "NA", round(JoinCount_increasing[[2]]$p.value[[1]],3)))})
-    
-    # get coordinates of pts as data.frame
-    xy = data.frame(st_coordinates(st_cast(st_centroid(df_sf)$geometry,"POINT")))
-    
-    ##------------Plot Leaflet Choropleths---------------------------
-    
-    # P-value choropleth map
-    output$p_choropleth <- renderLeaflet({
-      
-      labels_p <- sprintf(
-        "<strong>County: </strong>%s<br/>
-        <strong>P-value: </strong>%s<br/>
-        <strong>Percent: </strong>%s<br/>",
-        df_sf$NAME,
-        df_sf$p,
-        df_sf$percent
-      ) %>%
-        lapply(htmltools::HTML)
-      
-      pal_p <- colorNumeric(
-        palette = colorRampPalette(c('red','yellow','blue'), bias=log(0.1)/log(0.5))(100), #length(df_sf$p) 
-        domain = c(0,1),
-        na.color = "black",
-        alpha = TRUE)
-      
-      p_leaf <-
-        leaflet() %>%
-        leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
-        addPolylines(
-          data = selected_state$state,
-          opacity = 1,
-          fillOpacity = 0,
-          color = "black", 
-          weight = 1.2
-        ) %>%
-        addPolygons(
-          data = df_sf,
-          layerId=~NAME,
-          stroke = TRUE,
-          smoothFactor = 0.5,
-          color = "black",
-          fillColor = ~pal_p(p),
-          weight = 1.0,
-          opacity = 0.2,
-          fillOpacity = 0.5,
-          highlight = highlightOptions(
-            weight = 1,
-            color = "black",
-            fillOpacity = 0.7,
-            opacity = 1.0
-          ),
-          label = labels_p,
-          labelOptions = labelOptions(
-            style = list(
-              "font-weight" = "normal",
-              padding = "3px 8px"
-            ),
-            textsize = "12px",
-            direction = "auto"
-          ),
-          group = 'counties'
-        ) %>%
-        addLegendNumeric(
-          orientation = 'horizontal',
-          height = 20,
-          width = 120,
-          bins = 11,
-          position = "bottomright",
-          title = "P-value",
-          pal = pal_p,
-          values = seq(from = 0, to = 1, length.out = 100), #df_sf$p,
-          fillOpacity = 0.5
-        ) %>%
-        fitBounds(lng1 = min(xy['X']),
-                  lat1 = min(xy['Y']),#-0.25*(max(xy['Y']) - min(xy['Y'])),
-                  lng2 = max(xy['X']),
-                  lat2 = max(xy['Y']))#-0.25*(max(xy['Y']) - min(xy['Y'])))
-    })
-    
-    # Alerts choropleth map
-    output$alerts_choropleth <- renderLeaflet({
-      
-      # leaflet alerts plot
-      labels_alerts <- sprintf(
-        "<strong>County: </strong>%s<br/>
-         <strong>Alert: </strong>%s<br/>
-         <strong>p-value: </strong>%s<br/>", 
-        df_sf$NAME,
-        df_sf$alert_percent,
-        df_sf$p
-      ) %>%
-        lapply(htmltools::HTML)
-      
-      pal_alerts <- colorFactor(
-        palette = c('blue','yellow','red'), 
-        levels = c('None', 'Warning', 'Alert'),
-        na.color = "black")
-      
-      alert_leaf <- leaflet() %>%
-        leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
-        addPolylines(
-          data = selected_state$state,
-          opacity = 1,
-          fillOpacity = 0,
-          color = "black", 
-          weight = 1.2
-        ) %>%
-        addPolygons(
-          data = df_sf,
-          layerId=~NAME,
-          stroke = TRUE,
-          smoothFactor = 0.5,
-          color = "black",
-          fillColor = ~pal_alerts(alert_percent),
-          weight = 1.0,
-          opacity = 0.2,
-          fillOpacity = 0.5,
-          highlight = highlightOptions(
-            weight = 1,
-            color = "black",
-            fillOpacity = 0.7,
-            opacity = 1.0
-          ),
-          label = labels_alerts,
-          labelOptions = labelOptions(
-            style = list(
-              "font-weight" = "normal",
-              padding = "3px 8px"
-            ),
-            textsize = "12px",
-            direction = "auto"
-          )
-        ) %>%
-        addLegendFactor(
-          position = "bottomright",
-          height = 8,
-          width = 10,
-          title = "Alerts",
-          labelStyle = 'font-size: 12px;',
-          pal = pal_alerts,
-          values = df_sf$alert_percent,
-          fillOpacity = 0.5
-        ) %>%
-        fitBounds(lng1 = min(xy['X']),
-                  lat1 = min(xy['Y']),#-0.25*(max(xy['Y']) - min(xy['Y'])),
-                  lng2 = max(xy['X']),
-                  lat2 = max(xy['Y']))#-0.25*(max(xy['Y']) - min(xy['Y'])))
-    })
-    
-    # Smoothed slope bins choropleth map
-    output$increasing_choropleth <- renderLeaflet({
-      
-      labels_inc <- sprintf(
-        "<strong>County: </strong>%s<br/>
-        <strong>Slope: </strong>%s<br/>",
-        df_sf$NAME,
-        round(df_sf$deriv1, digits = 3)
-      ) %>%
-        lapply(htmltools::HTML)
-      
-      pal_inc <- colorFactor(
-        palette = c('blue','yellow','red'), 
-        levels = c('Decreasing', 'Stable', 'Increasing'),
-        na.color = "black")
-      
-      inc_leaf <-
-        leaflet() %>%
-        leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
-        addPolylines(
-          data = selected_state$state,
-          opacity = 1,
-          fillOpacity = 0,
-          color = "black", 
-          weight = 1.2
-        ) %>%
-        addPolygons(
-          data = df_sf,
-          layerId=~NAME,
-          stroke = TRUE,
-          smoothFactor = 0.5,
-          color = "black",
-          fillColor = ~pal_inc(trajectory),
-          weight = 1.0,
-          opacity = 0.2,
-          fillOpacity = 0.5,
-          highlight = highlightOptions(
-            weight = 1,
-            color = "black",
-            fillOpacity = 0.7,
-            opacity = 1.0
-          ),
-          label = labels_inc,
-          labelOptions = labelOptions(
-            style = list(
-              "font-weight" = "normal",
-              padding = "3px 8px"
-            ),
-            textsize = "12px",
-            direction = "auto"
-          )
-        ) %>%
-        addLegendFactor(
-          position = "bottomright",
-          height = 8,
-          width = 10,
-          title = "Increasing",
-          labelStyle = 'font-size: 12px;',
-          pal = pal_inc,
-          values = df_sf$trajectory,
-          fillOpacity = 0.5
-        ) %>%
-        fitBounds(lng1 = min(xy['X']),
-                  lat1 = min(xy['Y']),#-0.25*(max(xy['Y']) - min(xy['Y'])),
-                  lng2 = max(xy['X']),
-                  lat2 = max(xy['Y']))#-0.25*(max(xy['Y']) - min(xy['Y'])))
-    })
+    selected$maps_date <- event_data("plotly_click", source = 'plotlyts')$x
+    compute_and_assign_mapping_output_reactives()
   })
   
   #------------------ADD COUNTY-WISE TIME SERIES POPUP MODAL-----------------#
@@ -963,9 +1020,14 @@ server <- function(input, output, session) {
   observeEvent(input$p_choropleth_shape_click, {
     p_choropleth_click <- input$p_choropleth_shape_click
     selected_county <- p_choropleth_click$id
+    if (input$State == "All") {
+      state = substr(selected_county, nchar(selected_county)-2+1, nchar(selected_county))
+      selected_county = substr(selected_county, 1, nchar(selected_county) - 4)
+    }
     
-    time_series_data <- st_as_sf(right_join(Reactive_dfs$df_2, Reactive_dfs$state_sf[,c("NAME","GEOID")], by = c("fips" = "GEOID"))) %>%
-      select(fips,
+    time_series_data <- st_as_sf(right_join(Reactive_dfs$df_2, selected_state$county_sf[,c("NAME","GEOID")], by = c("fips" = "GEOID"))) %>%
+      select(state_abbr,
+             fips,
              NAME,
              date,
              percent,
@@ -974,6 +1036,9 @@ server <- function(input, output, session) {
       mutate(NAME = as.character(NAME))
     
     df_temp = time_series_data[time_series_data$NAME == selected_county,]
+    if (input$State == "All") {
+      df_temp = df_temp[df_temp$state_abbr == state,]
+    }
     
     if(dim(df_temp)[1] > 1){
       showModal(modalDialog(
@@ -989,14 +1054,14 @@ server <- function(input, output, session) {
     
     output$CountyTimeSeriesPlot <- renderPlotly({
       
-      df_temp_before = df_temp %>% filter(date <= selected_date$date)
-      df_temp_after = df_temp %>% filter(date >= selected_date$date)
+      df_temp_before = df_temp %>% filter(date <= selected$maps_date)
+      df_temp_after = df_temp %>% filter(date >= selected$maps_date)
       
       plot_ly() %>%
         add_trace(data=df_temp_before, x=~date, y=~percent, type='scatter', mode='lines+markers',
                   marker = list(color = ~color),
                   hoverinfo = "text",
-                  name = paste0("Before ", selected_date$date),
+                  name = paste0("Before ", selected$maps_date),
                   text = ~ paste(
                     "<br>Date:</b>", date,
                     "<br>%:</b>", format(percent, big.mark = ",")
@@ -1005,32 +1070,38 @@ server <- function(input, output, session) {
                   line = list(color = 'gray', dash = 'dot'),
                   marker = list(color = ~color),
                   hoverinfo = "text",
-                  name = paste0("After ", selected_date$date),
+                  name = paste0("After ", selected$maps_date),
                   text = ~ paste(
                     "<br>Date:</b>", date,
                     "<br>%:</b>", format(percent, big.mark = ",")
                   )) %>%
         layout(shapes = list(
           type = "line",
-          x0 = selected_date$date,
-          x1 = selected_date$date,
+          x0 = selected$maps_date,
+          x1 = selected$maps_date,
           y0 = min(df_temp$percent),
           y1 = max(df_temp$percent),
           line = list(color = "black", width = 2)
         ),
         title=paste0("<b>", selected_county, ": ", input$CCDD,"<b>"),
         yaxis = list(title=paste0("<b>Percent (%)<b>")),
-        xaxis = list(title=paste0("<b>Date<b>")))
-      })
+        xaxis = list(title=paste0("<b>Date<b>"))) %>%
+        config(modeBarButtons = list(list("toImage"), list("autoScale2d")))
     })
+  })
   
   # Reactive element to plot time series from alerts_choropleth on click
   observeEvent(input$alerts_choropleth_shape_click, {
     alerts_choropleth_click <- input$alerts_choropleth_shape_click
     selected_county <- alerts_choropleth_click$id
+    if (input$State == "All") {
+      state = substr(selected_county, nchar(selected_county)-2+1, nchar(selected_county))
+      selected_county = substr(selected_county, 1, nchar(selected_county) - 4)
+    }
     
-    time_series_data <- st_as_sf(right_join(Reactive_dfs$df_2, Reactive_dfs$state_sf[,c("NAME","GEOID")], by = c("fips" = "GEOID"))) %>%
-      select(fips,
+    time_series_data <- st_as_sf(right_join(Reactive_dfs$df_2, selected_state$county_sf[,c("NAME","GEOID")], by = c("fips" = "GEOID"))) %>%
+      select(state_abbr,
+             fips,
              NAME,
              date,
              percent,
@@ -1039,6 +1110,9 @@ server <- function(input, output, session) {
       mutate(NAME = as.character(NAME))
     
     df_temp = time_series_data[time_series_data$NAME == selected_county,]
+    if (input$State == "All") {
+      df_temp = df_temp[df_temp$state_abbr == state,]
+    }
     
     if(dim(df_temp)[1] > 1){
       showModal(modalDialog(
@@ -1054,14 +1128,14 @@ server <- function(input, output, session) {
     
     output$CountyTimeSeriesPlot <- renderPlotly({
       
-      df_temp_before = df_temp %>% filter(date <= selected_date$date)
-      df_temp_after = df_temp %>% filter(date >= selected_date$date)
+      df_temp_before = df_temp %>% filter(date <= selected$maps_date)
+      df_temp_after = df_temp %>% filter(date >= selected$maps_date)
       
       plot_ly() %>%
         add_trace(data=df_temp_before, x=~date, y=~percent, type='scatter', mode='lines+markers',
                   marker = list(color = ~color),
                   hoverinfo = "text",
-                  name = paste0("Before ", selected_date$date),
+                  name = paste0("Before ", selected$maps_date),
                   text = ~ paste(
                     "<br>Date:</b>", date,
                     "<br>%:</b>", format(percent, big.mark = ",")
@@ -1070,22 +1144,23 @@ server <- function(input, output, session) {
                   line = list(color = 'gray', dash = 'dot'),
                   marker = list(color = ~color),
                   hoverinfo = "text",
-                  name = paste0("After ", selected_date$date),
+                  name = paste0("After ", selected$maps_date),
                   text = ~ paste(
                     "<br>Date:</b>", date,
                     "<br>%:</b>", format(percent, big.mark = ",")
                   )) %>%
         layout(shapes = list(
           type = "line",
-          x0 = selected_date$date,
-          x1 = selected_date$date,
+          x0 = selected$maps_date,
+          x1 = selected$maps_date,
           y0 = min(df_temp$percent),
           y1 = max(df_temp$percent),
           line = list(color = "black", width = 2)
         ),
         title=paste0("<b>", selected_county, ": ", input$CCDD,"<b>"),
         yaxis = list(title=paste0("<b>Percent (%)<b>")),
-        xaxis = list(title=paste0("<b>Date<b>")))
+        xaxis = list(title=paste0("<b>Date<b>"))) %>%
+        config(modeBarButtons = list(list("toImage"), list("autoScale2d")))
     })
   })
   
@@ -1093,18 +1168,26 @@ server <- function(input, output, session) {
   observeEvent(input$increasing_choropleth_shape_click, {
     increasing_choropleth_click <- input$increasing_choropleth_shape_click
     selected_county <- increasing_choropleth_click$id
+    if (input$State == "All") {
+      state = substr(selected_county, nchar(selected_county)-2+1, nchar(selected_county))
+      selected_county = substr(selected_county, 1, nchar(selected_county) - 4)
+    }
     
-    time_series_data <- st_as_sf(right_join(Reactive_dfs$df_2, Reactive_dfs$state_sf[,c("NAME","GEOID")], by = c("fips" = "GEOID"))) %>%
-      select(fips,
+    time_series_data <- st_as_sf(right_join(Reactive_dfs$df_2, selected_state$county_sf[,c("NAME","GEOID")], by = c("fips" = "GEOID"))) %>%
+      select(state_abbr,
+             fips,
              NAME,
              date,
              percent,
-             color,
-             spline) %>%
+             spline,
+             color) %>%
       as.data.frame() %>%
       mutate(NAME = as.character(NAME))
     
     df_temp = time_series_data[time_series_data$NAME == selected_county,]
+    if (input$State == "All") {
+      df_temp = df_temp[df_temp$state_abbr == state,]
+    }
     
     if(dim(df_temp)[1] > 1){
       showModal(modalDialog(
@@ -1120,15 +1203,15 @@ server <- function(input, output, session) {
     
     output$CountyTimeSeriesPlot <- renderPlotly({
       
-      df_temp_before = df_temp %>% filter(date <= selected_date$date)
-      df_temp_after = df_temp %>% filter(date >= selected_date$date)
-      df_spline = subset(df_temp_before, df_temp_before$date > as.Date(selected_date$date)-7)
+      df_temp_before = df_temp %>% filter(date <= selected$maps_date)
+      df_temp_after = df_temp %>% filter(date >= selected$maps_date)
+      df_spline = subset(df_temp_before, df_temp_before$date > as.Date(selected$maps_date)-7)
       
       plot_ly() %>%
         add_trace(data=df_temp_before, x=~date, y=~percent, type='scatter', mode='lines+markers',
                   marker = list(color = ~color),
                   hoverinfo = "text",
-                  name = paste0("Before ", selected_date$date),
+                  name = paste0("Before ", selected$maps_date),
                   text = ~ paste(
                     "<br>Date:</b>", date,
                     "<br>%:</b>", format(percent, big.mark = ",")
@@ -1137,7 +1220,7 @@ server <- function(input, output, session) {
                   line = list(color = 'gray', dash = 'dot'),
                   marker = list(color = ~color),
                   hoverinfo = "text",
-                  name = paste0("After ", selected_date$date),
+                  name = paste0("After ", selected$maps_date),
                   text = ~ paste(
                     "<br>Date:</b>", date,
                     "<br>%:</b>", format(percent, big.mark = ",")
@@ -1153,15 +1236,16 @@ server <- function(input, output, session) {
                   )) %>%
         layout(shapes = list(
           type = "line",
-          x0 = selected_date$date,
-          x1 = selected_date$date,
+          x0 = selected$maps_date,
+          x1 = selected$maps_date,
           y0 = min(df_temp$percent),
           y1 = max(df_temp$percent),
           line = list(color = "black", width = 2)
         ),
         title=paste0("<b>", selected_county, ": ", input$CCDD,"<b>"),
         yaxis = list(title=paste0("<b>Percent (%)<b>")),
-        xaxis = list(title=paste0("<b>Date<b>")))
+        xaxis = list(title=paste0("<b>Date<b>"))) %>%
+        config(modeBarButtons = list(list("toImage"), list("autoScale2d")))
     })
   })
   
@@ -1197,6 +1281,36 @@ server <- function(input, output, session) {
       
     })
   })
+  
+  output$report <- downloadHandler(
+    filename <-  paste0("Alerts_of_Alerts_report_", Sys.Date(),".html"),
+    content = function(file) {
+      waiter_show(html = spin_loaders(6))
+      temp_dir = tempdir()
+      tempReport <- file.path(temp_dir, "AoA_report.Rmd")
+      file.copy("AoA_report.Rmd", tempReport, overwrite = TRUE)
+      logo_file <- file.path(temp_dir, "logo.png")
+      file.copy("logo.png", logo_file, overwrite = TRUE)
+      params <- list(selected_state = selected$state,
+                     selected_ccdd = selected$CCDD,
+                     selected_startDate = selected$startDate,
+                     selected_endDate = selected$endDate,
+                     plotly_object = plotly_plot(),
+                     maps_date = selected$maps_date,
+                     leaflet_object_p = leaflet_p_choropleth(),
+                     leaflet_object_alerts = leaflet_alerts_choropleth(),
+                     leaflet_object_increasing = leaflet_increasing_choropleth(),
+                     globalMoran = stat_test$globalMoran,
+                     joincount_alert = stat_test$JoinCount_alert,
+                     joincount_warningoralert = stat_test$JoinCount_warning_or_alert,
+                     joincount_inc = stat_test$JoinCount_increasing)
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv())
+      )
+      waiter_hide()
+    }
+  )
 }
 
 shinyApp(ui, server)
