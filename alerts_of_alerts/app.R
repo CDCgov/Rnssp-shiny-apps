@@ -17,7 +17,8 @@ suppressPackageStartupMessages({
     "data.table", "lubridate", "shinycssloaders",
     "plotly", "shinyWidgets", "sf", "shinythemes",
     "janitor", "tidyverse", "leaflet", "leaflegend",
-    "spdep", "shinydashboard", "waiter"
+    "spdep", "shinydashboard", "waiter", "htmltools",
+    "leafsync", "knitr", "kableExtra"
   )
 })
 
@@ -239,7 +240,7 @@ ui <- tagList(
                 title = h3("Alerts of Alerts Time Series", 
                            style = 'font-size:18px; font-weight: bold;'),
                 withSpinner(plotlyOutput(outputId = "tsPlotly", 
-                                         height = "280px")),
+                                         height = "320px")),
                 width = 12),
             box(helpPopup(id = "", title = "",
                           content = paste0("This map shows the spatial ",
@@ -260,7 +261,7 @@ ui <- tagList(
                           icon_style = "color:blue;font-size:10px"),
                 title = h3("Spatial Distribution of p-values", 
                            style = 'font-size:18px; font-weight: bold; height: 30px'),
-                withSpinner(leafletOutput("p_choropleth", height = "300px")),
+                withSpinner(leafletOutput("p_choropleth", height = "280px")),
                 box(h3(textOutput('date1'), 
                        style = 'font-size:14px; font-weight: bold;'),
                     h1(textOutput('globalmoran'), style = 'font-size:14px;')),
@@ -282,7 +283,7 @@ ui <- tagList(
                           icon_style = "color:blue;font-size:10px"),
                 title = h3("Spatial Distribution of Alerts", 
                            style = 'font-size:18px; font-weight: bold; height: 30px; color: rgb(22, 96, 167)'),
-                withSpinner(leafletOutput("alerts_choropleth", height = "300px")),
+                withSpinner(leafletOutput("alerts_choropleth", height = "280px")),
                 box(h3(textOutput('date2'), 
                        style = 'font-size:14px; font-weight: bold;'),
                     h1(textOutput('joincount_alert'), 
@@ -305,7 +306,7 @@ ui <- tagList(
                           icon_style = "color:blue;font-size:10px"),
                 title = h3("Spatial Distribution of Smoothed Slopes", 
                            style = 'font-size:18px; font-weight: bold; height: 30px; color: rgb(60, 0, 155)'),
-                withSpinner(leafletOutput("increasing_choropleth", height = "300px")),
+                withSpinner(leafletOutput("increasing_choropleth", height = "280px")),
                 box(h3(textOutput('date3'), style = 'font-size:14px; font-weight: bold;'),
                     h1(textOutput('joincount_inc'), style = 'font-size:14px;')),
                 width = 4)
@@ -584,6 +585,16 @@ server <- function(input, output, session) {
     return(list(df_all, ed_county_waves))
   }
   
+  # Reactive function to store the binary empty df status
+  master_empty <- reactive({
+    is.null(Reactive_dfs$df_1)
+  })
+  
+  observe({
+    disable <- master_empty()
+    shinyjs::toggleState("report", !disable)
+  })
+  
   compute_and_assign_mapping_output_reactives <- reactive({
     
     JoinCount_alert <- NULL
@@ -615,8 +626,6 @@ server <- function(input, output, session) {
     
     # get non-null rows for analysis
     df_sf_non_null = selected_state$df_sf[!is.na(selected_state$df_sf$county),]
-    #assign("selected_state_df_sf", selected_state$df_sf, envir=.GlobalEnv)
-    assign("df_sf_non_null", df_sf_non_null, envir=.GlobalEnv)
     
     if (nrow(df_sf_non_null) > 0) {
       # Compute local moran df
@@ -658,15 +667,19 @@ server <- function(input, output, session) {
   })
   
   plotly_plot = reactive({
+    color_scale <- c('NA' = 'gray', 'None' = 'blue', 'Warning' = 'yellow', 'Alert' = 'red')
+    
     percent_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~percent, type = "scatter", mode = "lines+markers",
-                            marker = list(color= ~alert_percent, size=25/log(dim(Reactive_dfs$df_1)[1])),
+                            marker = list(
+                              color = ~alert_percent,
+                              size=25/log(dim(Reactive_dfs$df_1)[1])),
                             line = list(color="gray", width=12/log(dim(Reactive_dfs$df_1)[1])),
                             hoverinfo = "text",
                             text = ~ paste(
                               "<br>Date:</b>", date,
                               "<br>%:</b>", format(percent, big.mark = ",")
                             ),
-                            name = "% CCDD")
+                            name = "% CC & DD")
     
     alert_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~count, type = 'scatter', mode = 'lines+markers',
                           marker = list(color = ~alert_alert, size=25/log(dim(Reactive_dfs$df_1)[1])),
@@ -699,7 +712,7 @@ server <- function(input, output, session) {
                spikedash = "dot",
                spikecolor = "black",
                spikethickness = -2,
-               tickformat="%m/%d/%y",
+               tickformat="%Y-%m-%d",
                ticklabelmode="period",
                tickangle = 0
              ),
@@ -743,8 +756,20 @@ server <- function(input, output, session) {
                yref = 'paper',
                line = list(color = "black", dash='dash', width = 2)
              )
-      ) %>%
+      ) %>% 
       event_register(.,'plotly_click')
+    
+    # Adding annotations for the second legend
+    annotations <- list(
+      list(x = 1.1, y = 0.4, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'None', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = 0.4, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 2, borderpad = 2, height = 10, width = 10),
+      list(x = 1.1, y = 0.285, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Warning', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = 0.285, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 2, borderpad = 2, height = 10, width = 10),
+      list(x = 1.1, y = 0.2, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Alert', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = 0.2, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 2, borderpad = 2, height = 10, width = 10)
+    )
+    
+    plt <- plt %>% layout(annotations = annotations)
     
     plt %>%
       config(modeBarButtons = list(list("toImage"), list("autoScale2d")))
@@ -985,8 +1010,6 @@ server <- function(input, output, session) {
     # Update the reactive values
     Reactive_dfs$df_1 <- dfs[[1]]
     Reactive_dfs$df_2 <- dfs[[2]]
-    
-    assign("Reactive_dfs_df2", Reactive_dfs$df_2, envir=.GlobalEnv)
     
     # Assign selected reactives for plotly title
     selected$state = input$State
@@ -1285,30 +1308,30 @@ server <- function(input, output, session) {
   output$report <- downloadHandler(
     filename <-  paste0("Alerts_of_Alerts_report_", Sys.Date(),".html"),
     content = function(file) {
-      waiter_show(html = spin_loaders(6))
-      temp_dir = tempdir()
-      tempReport <- file.path(temp_dir, "AoA_report.Rmd")
-      file.copy("AoA_report.Rmd", tempReport, overwrite = TRUE)
-      logo_file <- file.path(temp_dir, "logo.png")
-      file.copy("logo.png", logo_file, overwrite = TRUE)
-      params <- list(selected_state = selected$state,
-                     selected_ccdd = selected$CCDD,
-                     selected_startDate = selected$startDate,
-                     selected_endDate = selected$endDate,
-                     plotly_object = plotly_plot(),
-                     maps_date = selected$maps_date,
-                     leaflet_object_p = leaflet_p_choropleth(),
-                     leaflet_object_alerts = leaflet_alerts_choropleth(),
-                     leaflet_object_increasing = leaflet_increasing_choropleth(),
-                     globalMoran = stat_test$globalMoran,
-                     joincount_alert = stat_test$JoinCount_alert,
-                     joincount_warningoralert = stat_test$JoinCount_warning_or_alert,
-                     joincount_inc = stat_test$JoinCount_increasing)
-      rmarkdown::render(tempReport, output_file = file,
-                        params = params,
-                        envir = new.env(parent = globalenv())
-      )
-      waiter_hide()
+        waiter_show(html = spin_loaders(6))
+        temp_dir = tempdir()
+        tempReport <- file.path(temp_dir, "AoA_report.Rmd")
+        file.copy("AoA_report.Rmd", tempReport, overwrite = TRUE)
+        logo_file <- file.path(temp_dir, "logo.png")
+        file.copy("logo.png", logo_file, overwrite = TRUE)
+        params <- list(selected_state = selected$state,
+                       selected_ccdd = selected$CCDD,
+                       selected_startDate = selected$startDate,
+                       selected_endDate = selected$endDate,
+                       plotly_object = plotly_plot(),
+                       maps_date = selected$maps_date,
+                       leaflet_object_p = leaflet_p_choropleth(),
+                       leaflet_object_alerts = leaflet_alerts_choropleth(),
+                       leaflet_object_increasing = leaflet_increasing_choropleth(),
+                       globalMoran = stat_test$globalMoran,
+                       joincount_alert = stat_test$JoinCount_alert,
+                       joincount_warningoralert = stat_test$JoinCount_warning_or_alert,
+                       joincount_inc = stat_test$JoinCount_increasing)
+        rmarkdown::render(tempReport, output_file = file,
+                          params = params,
+                          envir = new.env(parent = globalenv())
+                          )
+        waiter_hide()
     }
   )
 }

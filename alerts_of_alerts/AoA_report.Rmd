@@ -25,8 +25,13 @@ params:
     margin-top: 20px; /* Adjust margin as needed */
   }
   .title-logo-container img {
-    margin-right: 20px; /* Adjust spacing between logo and title */
+    margin-right: 20px; /* Adjust spacing between logo and vertical line */
     height: 150px; /* Adjust the height as needed */
+  }
+  .vertical-line {
+    border-left: 2px solid black; /* Adjust the width and color of the line as needed */
+    height: 150px; /* Match the height of the logo */
+    margin-right: 20px; /* Adjust spacing between vertical line and title */
   }
   .title-logo-container h1 {
     margin: 0;
@@ -36,6 +41,7 @@ params:
 
 <div class="title-logo-container">
   <img src="logo.png" alt="Logo">
+  <div class="vertical-line"></div>
   <h1>National Syndromic Surveillance Program<br>Alerts of Alerts Shiny App Report</h1>
 </div>
 
@@ -47,11 +53,11 @@ library(kableExtra)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-<div style="text-align: center; font-size: 0.8em;">
-  `r paste0("Report generated on ", format(Sys.Date(), "%A, %B %d, %Y")," at ", format(Sys.time(), "%X %Y %Z"),".")`
+<div style="text-align: center; font-size: 0.8em; font-style: italic;">
+  `r paste0("Report generated on ", format(Sys.Date(), "%A, %B %d, %Y")," at ", format(Sys.time(), "%H:%M %Y %Z"),".")`
 </div>
 
-```{css, echo = FALSE}
+```{css user_input_table_formatting, echo = FALSE}
 
 caption {
   color:black;
@@ -123,30 +129,21 @@ caption {
 .sorted {
   background-color: hsla(0, 0%, 60%, 0.1);
 }
-
 ```
 
 ```{r user_inputs, echo=FALSE}
 # Create a data frame
 data <- data.frame(
-  Variables = c("State", "CC & DD Category", "Start Date", "End Date", "Maps Date"),
+  Parameters = c("State", "CC & DD Category", "Start Date", "End Date", "Maps Date"),
   Values = c(params$selected_state, params$selected_ccdd, format(as.Date(params$selected_startDate), "%B %d, %Y"), format(as.Date(params$selected_endDate), "%B %d, %Y"), format(as.Date(params$maps_date), "%B %d, %Y"))
 )
 
 kable(data, format = "html", table.attr = 'class="term-table"') %>%
-  kable_styling(full_width = FALSE, position = "center")
-
-#kable(data, col.names = NULL, escape = FALSE) %>%
-#  kable_styling(bootstrap_options = c("condensed"), full_width = FALSE) %>%
-#  add_header_above(c("Selections" = 2)) %>%
-#  column_spec(1, italic = TRUE) #%>%
-  #column_spec(2, border_left = TRUE, border_right = TRUE)
-
-# Generate table without column names
-#kable(data, col.names = NULL) %>%
-#  kable_styling(full_width = FALSE) %>%
-#  add_header_above(c(" " = 1, "User Selections" = 1)) %>%
-#  column_spec(1, bold = TRUE)
+  kable_styling(full_width = FALSE, position = "center") %>%
+  row_spec(0, bold = TRUE, color = "white", background = "hsl(0, 0%, 47%)") %>%
+  column_spec(1, bold = TRUE) %>%
+  column_spec(2, color = "black", background = "hsla(0, 0%, 60%, 0.1)") %>%
+  add_header_above(c("**Selected Parameters**" = 2))
 ```
 
 The [Alerts of Alerts app](https://github.com/CDCgov/Rnssp-shiny-apps/tree/master/alerts_of_alerts) 
