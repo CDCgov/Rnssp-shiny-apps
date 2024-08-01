@@ -17,7 +17,7 @@ suppressPackageStartupMessages({
     "data.table", "lubridate", "shinycssloaders",
     "plotly", "shinyWidgets", "sf", "shinythemes",
     "janitor", "tidyverse", "leaflet", "leaflegend",
-    "spdep", "shinydashboard", "waiter", "htmltools",
+    "spdep", "shinydashboard", "htmltools",
     "leafsync", "knitr", "kableExtra"
   )
 })
@@ -155,7 +155,6 @@ EndDate_0 <- Sys.Date() %m-%
 
 ui <- tagList(
   useShinyjs(),
-  useWaiter(),
   tags$head(
     HTML(
       "<script>
@@ -1000,12 +999,10 @@ server <- function(input, output, session) {
   
   observeEvent(input$go, {
     
-    waiter_show(html = spin_loaders(6))
     withProgress(
     dfs <- get_and_mutate_dfs(input),
     message="Loading data...", value = 0.99
     )
-    waiter_hide()
     
     # Update the reactive values
     Reactive_dfs$df_1 <- dfs[[1]]
@@ -1306,32 +1303,33 @@ server <- function(input, output, session) {
   })
   
   output$report <- downloadHandler(
-    filename <-  paste0("Alerts_of_Alerts_report_", Sys.Date(),".html"),
+    filename = paste0("Alerts_of_Alerts_report_", Sys.Date(), ".html"),
     content = function(file) {
-        waiter_show(html = spin_loaders(6))
-        temp_dir = tempdir()
+      withProgress(message = "Downloading report...", value = 0.99, {
+        temp_dir <- tempdir()
         tempReport <- file.path(temp_dir, "AoA_report.Rmd")
         file.copy("AoA_report.Rmd", tempReport, overwrite = TRUE)
         logo_file <- file.path(temp_dir, "logo.png")
         file.copy("logo.png", logo_file, overwrite = TRUE)
-        params <- list(selected_state = selected$state,
-                       selected_ccdd = selected$CCDD,
-                       selected_startDate = selected$startDate,
-                       selected_endDate = selected$endDate,
-                       plotly_object = plotly_plot(),
-                       maps_date = selected$maps_date,
-                       leaflet_object_p = leaflet_p_choropleth(),
-                       leaflet_object_alerts = leaflet_alerts_choropleth(),
-                       leaflet_object_increasing = leaflet_increasing_choropleth(),
-                       globalMoran = stat_test$globalMoran,
-                       joincount_alert = stat_test$JoinCount_alert,
-                       joincount_warningoralert = stat_test$JoinCount_warning_or_alert,
-                       joincount_inc = stat_test$JoinCount_increasing)
+        params <- list(
+          selected_state = selected$state,
+          selected_ccdd = selected$CCDD,
+          selected_startDate = selected$startDate,
+          selected_endDate = selected$endDate,
+          plotly_object = plotly_plot(),
+          maps_date = selected$maps_date,
+          leaflet_object_p = leaflet_p_choropleth(),
+          leaflet_object_alerts = leaflet_alerts_choropleth(),
+          leaflet_object_increasing = leaflet_increasing_choropleth(),
+          globalMoran = stat_test$globalMoran,
+          joincount_alert = stat_test$JoinCount_alert,
+          joincount_warningoralert = stat_test$JoinCount_warning_or_alert,
+          joincount_inc = stat_test$JoinCount_increasing
+        )
         rmarkdown::render(tempReport, output_file = file,
                           params = params,
-                          envir = new.env(parent = globalenv())
-                          )
-        waiter_hide()
+                          envir = new.env(parent = globalenv()))
+      })
     }
   )
 }
