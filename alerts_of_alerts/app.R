@@ -388,7 +388,7 @@ server <- function(input, output, session) {
       filter(category == input$CCDD) %>%
       pull(category_api)
     
-    url <- paste0("https://essence2.syndromicsurveillance.org/nssp_essence/api/timeSeries?nonZeroComposite=false",
+    url <- paste0("https://essence.syndromicsurveillance.org/nssp_essence/api/timeSeries?nonZeroComposite=false",
                   "&startMonth=january&graphOnly=true&datasource=va_hosp&startDate=", format(input$StartDate %m-% days(13), "%d%b%Y"), 
                   "&medicalGroupingSystem=essencesyndromes&userId=2362&multiStratVal=facilityfips&endDate=", 
                   format(input$EndDate, "%d%b%Y"), "&facilityfips=", fips_for_url, "&percentParam=ccddCategory",
