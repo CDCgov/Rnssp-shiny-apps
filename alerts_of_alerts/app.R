@@ -469,10 +469,8 @@ server <- function(input, output, session) {
           p = as.numeric(p)
         )
       
-
       assign("df", df, envir=.GlobalEnv)
       
-
       #-----Compute each of total % CCDD alerts, alerts of alerts, and increasing CCDD percent alerts-----
       
       # Compute alerts over state-wide CCDD % df
@@ -655,9 +653,8 @@ server <- function(input, output, session) {
           percent_stable = (n_stable / n_total) * 100
         )
       
-
       assign("ed_increasing_status", ed_increasing_status, envir=.GlobalEnv)
-
+      
       ed_anomalies_trend <- ed_increasing_status %>%
         mutate(
           sparsity_ratio90 = {
@@ -785,10 +782,8 @@ server <- function(input, output, session) {
           fitted,
           alert_trend
         )
-
       
       assign("ed_anomalies_trend", ed_anomalies_trend, envir=.GlobalEnv)
-
     })
     
     #---------------------------------------------------------------------------------------
