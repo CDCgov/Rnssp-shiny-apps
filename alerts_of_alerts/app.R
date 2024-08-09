@@ -18,7 +18,7 @@ suppressPackageStartupMessages({
     "plotly", "shinyWidgets", "sf", "shinythemes",
     "janitor", "tidyverse", "leaflet", "leaflegend",
     "spdep", "shinydashboard", "htmltools",
-    "leafsync", "knitr", "kableExtra"
+    "leafsync", "knitr", "kableExtra", "profvis"
   )
 })
 
@@ -469,6 +469,10 @@ server <- function(input, output, session) {
           p = as.numeric(p)
         )
       
+
+      assign("df", df, envir=.GlobalEnv)
+      
+
       #-----Compute each of total % CCDD alerts, alerts of alerts, and increasing CCDD percent alerts-----
       
       # Compute alerts over state-wide CCDD % df
@@ -627,6 +631,9 @@ server <- function(input, output, session) {
         ungroup() %>%
         mutate(trajectory = factor(trajectory, levels = c("Increasing", "Stable", "Decreasing", "Sparse")))
       
+      
+      assign("ed_county_waves", ed_county_waves, envir=.GlobalEnv)
+      
       ed_increasing_status <- ed_county_waves %>%
         group_by(date) %>%
         summarise(
@@ -648,6 +655,9 @@ server <- function(input, output, session) {
           percent_stable = (n_stable / n_total) * 100
         )
       
+
+      assign("ed_increasing_status", ed_increasing_status, envir=.GlobalEnv)
+
       ed_anomalies_trend <- ed_increasing_status %>%
         mutate(
           sparsity_ratio90 = {
@@ -775,6 +785,10 @@ server <- function(input, output, session) {
           fitted,
           alert_trend
         )
+
+      
+      assign("ed_anomalies_trend", ed_anomalies_trend, envir=.GlobalEnv)
+
     })
     
     #---------------------------------------------------------------------------------------
@@ -783,6 +797,8 @@ server <- function(input, output, session) {
       left_join(., df_switch_percent, by = 'date') %>%
       left_join(., ed_anomalies_trend, by = 'date') %>%
       tail(., -13)
+    
+    assign("df_all", df_all, envir=.GlobalEnv)
     
     return(list(df_all, ed_county_waves))
   }
@@ -828,6 +844,7 @@ server <- function(input, output, session) {
     
     # get non-null rows for analysis
     df_sf_non_null = selected_state$df_sf[!is.na(selected_state$df_sf$county),]
+    assign("df_sf_non_null", df_sf_non_null, envir=.GlobalEnv)
     
     if (nrow(df_sf_non_null) > 0) {
       # Compute local moran df
@@ -1455,6 +1472,8 @@ server <- function(input, output, session) {
              color) %>%
       as.data.frame() %>%
       mutate(NAME = as.character(NAME))
+    
+    assign("time_series_data", time_series_data, envir=.GlobalEnv)
     
     df_temp = time_series_data[time_series_data$NAME == selected_county,]
     if (input$State == "All") {
