@@ -511,8 +511,8 @@ server <- function(input, output, session) {
         )
       
       # Compute trend classification (i.e., increasing, decreasing, stable) alerts of alerts df
-      assign("df", df, envir=.GlobalEnv)
-      incProgress(0.25, detail = "Estimating county trends and testing for increase...")
+     
+      incProgress(0.25, detail = "Estimating county trends and testing for increase (this may take a moment)...")
       
       #future::plan(multicore, workers = 5)
       
@@ -812,7 +812,7 @@ server <- function(input, output, session) {
     output$date3 <- renderText({selected$maps_date})
     
     selected_state$df_sf = st_as_sf(right_join(Reactive_dfs$df_2[Reactive_dfs$df_2$date == selected$maps_date,], selected_state$county_sf[,c("NAME","GEOID","geometry")], by = c("fips" = "GEOID")))
-    assign("selected_state_df_sf", selected_state$df_sf, envir=.GlobalEnv)
+    
     if (input$State == "All") {
       lookup_table <- st_drop_geometry(selected_state$df_sf) %>%
         filter(!is.na(state_abbr)) %>%
