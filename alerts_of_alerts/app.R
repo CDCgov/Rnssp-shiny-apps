@@ -511,8 +511,11 @@ server <- function(input, output, session) {
         )
       
       # Compute trend classification (i.e., increasing, decreasing, stable) alerts of alerts df
-      
+      assign("df", df, envir=.GlobalEnv)
       incProgress(0.25, detail = "Estimating county trends and testing for increase...")
+      
+      #future::plan(multicore, workers = 5)
+      
       ed_county_waves <- df %>%
         nest(data = -fips) %>%
         mutate(
@@ -551,9 +554,9 @@ server <- function(input, output, session) {
               .gam_out <- gam(cbind(data_count, all_count - data_count) ~ s(as.double(date), 
                                                                             bs = "ad"), 
                               family = binomial, 
-                              data = .x, 
+                              data = .y, 
                               method = "REML",
-                              control = gam.control(maxit = 200))
+                              control = gam.control(maxit = 3, eps = 1e-2, mgcv.tol = 1e-2, trace = FALSE))
             
               if (.gam_out$converged) {
                 
@@ -575,7 +578,8 @@ server <- function(input, output, session) {
       
                 data.frame(
                   fitted = rep(NA, nrow(.x)), 
-                  sp_ratio90 = sparsity_ratio90
+                  sp_ratio90 = sparsity_ratio90,
+                  sp_ratio = sparsity_ratio
                 ) %>%
                   mutate(
                     lower = NA, 
@@ -686,9 +690,9 @@ server <- function(input, output, session) {
             .gam_out <- gam(cbind(n_increasing, n_total - n_increasing) ~ s(as.double(date), 
                                                                             bs = "ad"), 
                             family = binomial, 
-                            data = ed_increasing_status, 
+                            data = .y, 
                             method = "REML",
-                            control = gam.control(maxit = 200))
+                            control = gam.control(maxit = 3, eps = 1e-2, mgcv.tol = 1e-2, trace = FALSE))
             
             if (.gam_out$converged) {
               
@@ -764,10 +768,9 @@ server <- function(input, output, session) {
             trajectory == "Increasing" ~ "red",
             trajectory == "Stable" ~ "yellow",
             trajectory == "Decreasing" ~ "blue",
-            trajectory == "Sparse" ~ "lightgray",
-            trajectory == "Did Not Converge" ~ "white"
+            trajectory == "Sparse" ~ "lightgray"
           ),
-          alert_trend = factor(alert_trend, levels = c("red", "yellow", "blue", "lightgray", "white"))
+          alert_trend = factor(alert_trend, levels = c("red", "yellow", "blue", "lightgray"))
         ) %>%
         select(
           date,
@@ -809,7 +812,7 @@ server <- function(input, output, session) {
     output$date3 <- renderText({selected$maps_date})
     
     selected_state$df_sf = st_as_sf(right_join(Reactive_dfs$df_2[Reactive_dfs$df_2$date == selected$maps_date,], selected_state$county_sf[,c("NAME","GEOID","geometry")], by = c("fips" = "GEOID")))
-    
+    assign("selected_state_df_sf", selected_state$df_sf, envir=.GlobalEnv)
     if (input$State == "All") {
       lookup_table <- st_drop_geometry(selected_state$df_sf) %>%
         filter(!is.na(state_abbr)) %>%
@@ -880,6 +883,35 @@ server <- function(input, output, session) {
   
   plotly_plot = reactive({
     color_scale <- c('NA' = 'gray', 'None' = 'blue', 'Warning' = 'yellow', 'Alert' = 'red')
+    
+    # Adding annotations as sub-legends
+    topy = 0.9
+    middley = 0.55
+    bottomy = 0.125
+    
+    annotations <- list(
+      # annotations for 1st legendgroup
+      list(x = 1.1, y = topy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'None', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = topy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = topy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Warning', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = topy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = topy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Alert', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = topy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      # annotations for 2nd legendgroup
+      list(x = 1.1, y = middley, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'None', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = middley, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = middley-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Warning', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = middley-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = middley-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Alert', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = middley-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      # annotations for 3rd legendgroup
+      list(x = 1.1, y = bottomy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Decreasing', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = bottomy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = bottomy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Stable', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = bottomy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = bottomy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Increasing', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = bottomy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10)
+    )
     
     percent_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~percent, type = "scatter", mode = "lines+markers",
                             marker = list(
@@ -978,40 +1010,11 @@ server <- function(input, output, session) {
           y1 = 1,
           yref = 'paper',
           line = list(color = "black", dash='dash', width = 2)
-        )
+        ), 
+        annotations = annotations,
+        legend = list(tracegroupgap = 93)
       ) %>% 
       event_register(.,'plotly_click')
-    
-    # Adding annotations as sub-legends
-    topy = 0.9
-    middley = 0.55
-    bottomy = 0.125
-    
-    annotations <- list(
-      # annotations for 1st legendgroup
-      list(x = 1.1, y = topy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'None', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = topy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
-      list(x = 1.1, y = topy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Warning', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = topy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
-      list(x = 1.1, y = topy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Alert', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = topy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
-      # annotations for 2nd legendgroup
-      list(x = 1.1, y = middley, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'None', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = middley, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
-      list(x = 1.1, y = middley-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Warning', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = middley-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
-      list(x = 1.1, y = middley-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Alert', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = middley-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
-      # annotations for 3rd legendgroup
-      list(x = 1.1, y = bottomy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Decreasing', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = bottomy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
-      list(x = 1.1, y = bottomy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Stable', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = bottomy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
-      list(x = 1.1, y = bottomy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Increasing', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = bottomy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10)
-    )
-    
-    plt <- plt %>% layout(annotations = annotations, legend = list(tracegroupgap = 93))
     
     plt %>%
       config(modeBarButtons = list(list("toImage"), list("autoScale2d")))
@@ -1169,8 +1172,8 @@ server <- function(input, output, session) {
       lapply(htmltools::HTML)
     
     pal_inc <- colorFactor(
-      palette = c('blue','yellow','red','lightgray', 'white'), 
-      levels = c('Decreasing', 'Stable', 'Increasing', 'Sparse', 'Did Not Converge'),
+      palette = c('blue','yellow','red','lightgray'),
+      levels = c('Decreasing', 'Stable', 'Increasing', 'Sparse'),
       na.color = "black")
     
     inc_leaf <-
