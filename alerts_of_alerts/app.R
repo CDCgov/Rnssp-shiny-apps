@@ -56,6 +56,7 @@ helpPopup <- function(
     ),
     HTML(id),
     tags$span(
+      shiny::icon(name = icon_name, class = "shinyhelper-icon", style = icon_style),
       word,
       style = paste("margin-left:10px;", icon_style),
       `data-toggle` = "popover",
@@ -63,8 +64,7 @@ helpPopup <- function(
       `data-content` = content,
       `data-animation` = TRUE,
       `data-placement` = match.arg(placement, several.ok = TRUE)[1],
-      `data-trigger` = match.arg(trigger, several.ok = TRUE)[1],
-      shiny::icon(name = icon_name, class = "shinyhelper-icon", style = icon_style)
+      `data-trigger` = match.arg(trigger, several.ok = TRUE)[1]
     )
   )
 }
