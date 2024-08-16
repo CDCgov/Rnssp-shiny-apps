@@ -208,7 +208,7 @@ params$plotly_object
 </style>
 
 ```{r leafletout, echo=FALSE, message=FALSE}
-inc_progress(msg = "Adding Choropleth Maps...")
+params$inc_progress(msg = "Adding Choropleth Maps...")
 A <- params$leaflet_object_p
 B <- params$leaflet_object_alerts
 C <- params$leaflet_object_increasing
@@ -218,7 +218,7 @@ div(class = 'sync-container-wrapper',
     sync(tagList(A, B, C), ncol=3)
   )
 )
-params$inc_progress(msg = "Done!")
+
 ```
 
 <br>
@@ -234,6 +234,6 @@ params$inc_progress(msg = "Done!")
 <br>
 <br>
 <br>
-
+`r params$inc_progress(msg = "Done!")`
 ---
 *The template for this report was originally created by [Josh Kimrey](https://github.com/jkimrey13) and adapted to [Rnssp Shiny Apps](https://github.com/CDCgov/Rnssp-shiny-apps) by [Gbedegnon Roseric Azondekon](https://rosericazondekon.github.io). For questions, ideas for improvement/collaboration, or attribution, please submit an issue at <https://github.com/CDCgov/Rnssp-shiny-apps/issues>.*
