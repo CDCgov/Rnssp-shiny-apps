@@ -1558,8 +1558,8 @@ server <- function(input, output, session) {
     })
   })
   
-  inc_progress <- function(){
-    shiny::incProgress()
+  inc_progress <- function(msg = ""){
+    shiny::incProgress(message = msg)
   }
   
   output$report <- downloadHandler(
