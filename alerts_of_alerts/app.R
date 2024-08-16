@@ -63,7 +63,7 @@ helpPopup <- function(
       `data-content` = content,
       `data-animation` = TRUE,
       `data-placement` = match.arg(placement, several.ok = TRUE)[1],
-      `data-trigger` = match.arg(trigger, several.ok = TRUE)[1]
+      `data-trigger` = match.arg(trigger, several.ok = TRUE)[1],
       shiny::icon(name = icon_name, class = "shinyhelper-icon", style = icon_style)
     )
   )
