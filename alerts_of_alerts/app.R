@@ -193,6 +193,7 @@ ui <- tagList(
                          "for spatial autocorrelation (i.e., spatial clustering)."
                        ),
                        placement = "right", trigger = "click",
+                       icon_name = "question-circle",
                        icon_style = "color:blue;font-size:15px"
                      ),
                      selectInput("State", "State", states, 'Florida'),
@@ -243,6 +244,7 @@ ui <- tagList(
                     "that date."
                   ),
                   placement = "right", trigger = "click",
+                  icon_name = "question-circle",
                   icon_style = "color:blue;font-size:10px"
                 )
               ),
@@ -275,6 +277,7 @@ ui <- tagList(
                     "respectively."
                   ),
                   placement = "bottom", trigger = "click",
+                  icon_name = "question-circle",
                   icon_style = "color:blue;font-size:10px"
                 )
               ),
@@ -308,6 +311,7 @@ ui <- tagList(
                     "as a single grouping, are spatially clustered."
                   ),
                   placement = "bottom", trigger = "click",
+                  icon_name = "question-circle",
                   icon_style = "color:blue;font-size:10px"
                 )
               ),
@@ -343,6 +347,7 @@ ui <- tagList(
                     "The test tests whether regions labeled 'Increasing' (red) are spatially clustered."
                   ),
                   placement = "bottom", trigger = "click",
+                  icon_name = "question-circle",
                   icon_style = "color:blue;font-size:10px"
                 )
               ),
