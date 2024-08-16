@@ -40,6 +40,7 @@ helpPopup <- function(
     content,
     placement = c("right", "top", "left", "bottom"),
     trigger = c("click", "hover", "focus", "manual"),
+    icon_name = "question-circle",
     icon_style = "color:red; cursor:pointer;") {
   
   tagList(
@@ -63,6 +64,7 @@ helpPopup <- function(
       `data-animation` = TRUE,
       `data-placement` = match.arg(placement, several.ok = TRUE)[1],
       `data-trigger` = match.arg(trigger, several.ok = TRUE)[1]
+      shiny::icon(name = icon_name, class = "shinyhelper-icon", style = icon_style)
     )
   )
 }
