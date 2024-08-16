@@ -1753,7 +1753,7 @@ server <- function(input, output, session) {
   output$report <- downloadHandler(
     filename = paste0("Alerts_of_Alerts_report_", Sys.Date(), ".html"),
     content = function(file) {
-      withProgress(message = "Downloading report...", value = 0, {
+      withProgress(message = "Downloading report...", value = 0.99, {
         temp_dir <- tempdir()
         tempReport <- file.path(temp_dir, "AoA_report.Rmd")
         file.copy("AoA_report.Rmd", tempReport, overwrite = TRUE)
