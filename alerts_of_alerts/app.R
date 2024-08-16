@@ -18,7 +18,7 @@ suppressPackageStartupMessages({
     "plotly", "shinyWidgets", "sf", "shinythemes",
     "janitor", "tidyverse", "leaflet", "leaflegend",
     "spdep", "shinydashboard", "htmltools",
-    "leafsync", "knitr", "kableExtra"
+    "leafsync", "knitr", "kableExtra", "mgcv", "gratia"
   )
 })
 
@@ -394,6 +394,361 @@ server <- function(input, output, session) {
                   "&graphOptions=multiplesmall&aqtTarget=TimeSeries&ccddCategory=", category_for_url, 
                   "&geographySystem=hospital&detector=probrepswitch&removeZeroSeries=true&timeResolution=daily&hasBeenE=1")
     
+    withProgress(message="Loading and processing data:", value=0, {
+      incProgress(0.25, detail = "Loading data...")
+      df <- myProfile$get_api_data(url) %>%
+        pluck("timeSeriesData") %>%
+        clean_names() %>%
+        mutate(
+          date = as.Date(date), 
+          alert_percent = case_when(
+            color %in% c("grey", "blue") ~ "None",
+            color == "yellow" ~ "Warning",
+            color == "red" ~ "Alert"
+          ),
+          alert_count = case_when(
+            color_data_count %in% c("grey", "blue") ~ "None",
+            color_data_count == "yellow" ~ "Warning",
+            color_data_count == "red" ~ "Alert"
+          )
+        ) %>%
+        separate(line_label, c("state_abbr", "county"), sep = " - ") %>%
+        select(
+          state_abbr, 
+          fips = facilityfips_id,
+          county, 
+          date,
+          data_count, 
+          all_count, 
+          percent = count, 
+          alert_percent,
+          alert_count,
+          p = levels,
+          color,
+          color_data_count
+        ) %>%
+        arrange(fips, date) %>%
+        mutate(
+          warning_or_alert_percent_factor = ifelse(
+            alert_percent %in% c("Warning","Alert"), 1, 0),
+          alert_percent_factor = ifelse(
+            alert_percent == "Alert", 1, 0),
+          alert_count_factor = ifelse(
+            alert_count == "Alert", 1, 0),
+          p = as.numeric(p)
+        )
+      
+      #-----Compute each of total % CCDD alerts, alerts of alerts, and increasing CCDD percent alerts-----
+      
+      # Compute alerts over state-wide CCDD % df
+      
+      incProgress(0.25, detail = "Testing CC & DD % for Alerts...")
+      df_switch_percent <- df %>% 
+        group_by(date) %>%
+        summarise(total_CCDD = sum(data_count),
+                  total_all = sum(all_count),
+                  .groups = 'drop') %>%
+        mutate(percent = (total_CCDD / total_all)*100.0) %>%
+        { 
+          nan_dates <- .$date[is.nan(.$percent)]
+          if(length(nan_dates) > 0) { 
+            warning(paste("0 statewide visits reported for dates:", paste(nan_dates, collapse = ", "), ". CCDD % treated as 0."))
+          } 
+          mutate(., percent = ifelse(is.nan(percent), 0, percent))
+        } %>%
+        select(date, percent) %>%
+        alert_switch(., t = date, y = percent) %>%
+        select(
+          date,
+          percent,
+          alert_percent = alert,
+          p.value_percent = p.value
+        )
+      
+      # Compute alerts over total alert counts df
+      
+      incProgress(0.25, detail = "Testing daily Alert counts % for Alerts...")
+      df_switch_alert_count = df %>%
+        group_by(date) %>%
+        summarise(count = sum(alert_percent == "Alert")) %>%
+        alert_switch(., t=date, y=count) %>%
+        select(
+          date,
+          count,
+          alert_alert = alert,
+          p.value_alert = p.value
+        )
+      
+      # Compute trend classification (i.e., increasing, decreasing, stable) alerts of alerts df
+     
+      incProgress(0.25, detail = "Estimating county trends and testing for increase (this may take a moment)...")
+      
+      #future::plan(multicore, workers = 5)
+      
+      ed_county_waves <- df %>%
+        nest(data = -fips) %>%
+        mutate(
+          model = map(.x = data, function (.x) {
+            
+            sparsity_ratio90 <- .x %>%
+              arrange(date) %>%
+              slice_tail(n = 90) %>%
+              mutate(
+                nonzero_obs = sum(data_count > 0), 
+                sp_ratio = n() / nonzero_obs
+              ) %>%
+              pull(sp_ratio) %>%
+              unique()
+            
+            sparsity_ratio <- .x %>%
+              arrange(date) %>%
+              filter(date >= max(date) %m-% years(1) + 1) %>%
+              mutate(
+                nonzero_obs = sum(data_count > 0), 
+                sp_ratio = n() / nonzero_obs
+              ) %>%
+              pull(sp_ratio) %>%
+              unique() 
+            
+            if (sparsity_ratio < 5 & sparsity_ratio90 < 5) {
+              
+              .y <- .x %>%
+                select(
+                  date,
+                  data_count,
+                  all_count
+                ) %>%
+                mutate(date = as.double(date))
+              
+              .gam_out <- gam(cbind(data_count, all_count - data_count) ~ s(as.double(date), 
+                                                                            bs = "ad"), 
+                              family = binomial, 
+                              data = .y, 
+                              method = "REML",
+                              control = gam.control(maxit = 3, eps = 1e-2, mgcv.tol = 1e-2, trace = FALSE))
+            
+              if (.gam_out$converged) {
+                
+                .deriv <- derivatives(.gam_out, data = .y, n = nrow(.y), level = 0.95, type = "central")
+                
+                data.frame(
+                  fitted = .gam_out$fitted.values * 100, 
+                  sp_ratio90 = sparsity_ratio90,
+                  sp_ratio = sparsity_ratio
+                ) %>%
+                  bind_cols(.deriv) %>%
+                  rename(
+                    deriv = .derivative,
+                    lower = .lower_ci, 
+                    upper = .upper_ci
+                  )
+                
+              } else {
+      
+                data.frame(
+                  fitted = rep(NA, nrow(.x)), 
+                  sp_ratio90 = sparsity_ratio90,
+                  sp_ratio = sparsity_ratio
+                ) %>%
+                  mutate(
+                    lower = NA, 
+                    deriv = NA, 
+                    upper = NA
+                  )
+                
+              }
+              
+              
+            } else {
+              
+              data.frame(
+                fitted = rep(NA, nrow(.x)),
+                sp_ratio90 = sparsity_ratio90,
+                sp_ratio = sparsity_ratio
+              ) %>%
+                mutate(
+                  lower = NA, 
+                  deriv = NA, 
+                  upper = NA
+                )
+              
+            }
+            
+          })
+        ) %>%
+        unnest(c(data, model)) %>%
+        group_by(fips) %>%
+        mutate(
+          row = row_number(), 
+          trajectory = case_when(
+            is.na(sp_ratio90) ~ "Sparse",
+            sp_ratio90 >= 5 | sp_ratio >= 5 ~ "Sparse",
+            deriv > 0 & lower > 0 ~ "Increasing",
+            deriv < 0 & upper < 0 ~ "Decreasing",
+            deriv > 0 & lower < 0 ~ "Stable",
+            deriv < 0 & upper > 0 ~ "Stable",
+            is.na(deriv) ~ "Sparse",
+            TRUE ~ "Stable"
+          )
+        ) %>%
+        group_by(fips, grp = with(rle(trajectory), rep(seq_along(lengths), lengths))) %>%
+        mutate(
+          period_total = max(seq_along(grp)), 
+          counter = seq_along(grp), 
+          start_date = min(date)
+        ) %>%
+        ungroup() %>%
+        mutate(trajectory = factor(trajectory, levels = c("Increasing", "Stable", "Decreasing", "Sparse")))
+      
+      ed_increasing_status <- ed_county_waves %>%
+        group_by(date) %>%
+        summarise(
+          data_count = sum(data_count), 
+          all_count = sum(all_count), 
+          n_increasing = sum(trajectory == "Increasing"),
+          n_decreasing = sum(trajectory == "Decreasing"), 
+          n_stable = sum(trajectory == "Stable"), 
+          n_total = n_distinct(fips)
+        ) %>%
+        mutate(
+          percent = (data_count / all_count) * 100, 
+          n_check = n_increasing + n_decreasing + n_stable
+        ) %>%
+        ungroup() %>%
+        mutate(
+          percent_increasing = (n_increasing / n_total) * 100,
+          percent_decreasing = (n_decreasing / n_total) * 100, 
+          percent_stable = (n_stable / n_total) * 100
+        )
+      
+      ed_anomalies_trend <- ed_increasing_status %>%
+        mutate(
+          sparsity_ratio90 = {
+            ed_increasing_status %>%
+              arrange(date) %>%
+              slice_tail(n = 90) %>%
+              mutate(
+                nonzero_obs = sum(n_increasing > 0), 
+                sp_ratio = n() / nonzero_obs
+              ) %>%
+              pull(sp_ratio) %>%
+              unique()
+          },
+          sparsity_ratio = {
+            ed_increasing_status %>%
+              arrange(date) %>%
+              filter(date >= max(date) %m-% years(1) + 1) %>%
+              mutate(
+                nonzero_obs = sum(n_increasing > 0), 
+                sp_ratio = n() / nonzero_obs
+              ) %>%
+              pull(sp_ratio) %>%
+              unique()
+          }
+        ) %>%
+        mutate(
+          model_output = if (sparsity_ratio[1] < 5 & sparsity_ratio90[1] < 5) {
+            .y <- ed_increasing_status %>%
+              select(
+                date,
+                n_increasing,
+                n_total
+              ) %>%
+              mutate(date = as.double(date))
+            
+            .gam_out <- gam(cbind(n_increasing, n_total - n_increasing) ~ s(as.double(date), 
+                                                                            bs = "ad"), 
+                            family = binomial, 
+                            data = .y, 
+                            method = "REML",
+                            control = gam.control(maxit = 3, eps = 1e-2, mgcv.tol = 1e-2, trace = FALSE))
+            
+            if (.gam_out$converged) {
+              
+              .deriv <- derivatives(.gam_out, data = .y, n = nrow(.y), level = 0.95, type = "central")
+              
+              data.frame(
+                fitted = .gam_out$fitted.values * n_total, 
+                sp_ratio90 = sparsity_ratio90,
+                sp_ratio = sparsity_ratio
+              ) %>%
+                bind_cols(.deriv) %>%
+                rename(
+                  deriv = .derivative,
+                  lower = .lower_ci, 
+                  upper = .upper_ci
+                )
+              
+            } else {
+              
+              data.frame(
+                fitted = rep(NA, nrow(ed_increasing_status)), 
+                sp_ratio90 = sparsity_ratio90,
+                sp_ratio = sparsity_ratio
+              ) %>%
+                mutate(
+                  lower = NA, 
+                  deriv = NA, 
+                  upper = NA
+                )
+              
+            }
+            
+            
+          } else {
+            
+            data.frame(
+              fitted = rep(NA, nrow(ed_increasing_status)),
+              sp_ratio90 = sparsity_ratio90,
+              sp_ratio = sparsity_ratio
+            ) %>%
+              mutate(
+                lower = NA, 
+                deriv = NA, 
+                upper = NA
+              )
+            
+          }
+        ) %>%
+        unnest(cols = c(model_output)) %>%
+        mutate(
+          row = row_number(), 
+          trajectory = case_when(
+            is.na(sp_ratio90) ~ "Sparse", 
+            sp_ratio90 >= 5 | sp_ratio >= 5 ~ "Sparse", 
+            deriv > 0 & lower > 0 ~ "Increasing", 
+            deriv < 0 & upper < 0 ~ "Decreasing",
+            deriv > 0 & lower < 0 ~ "Stable", 
+            deriv < 0 & upper > 0 ~ "Stable", 
+            is.na(deriv) ~ "Sparse", 
+            TRUE ~ "Stable"
+          )
+        ) %>%
+        group_by(grp = with(rle(trajectory), rep(seq_along(lengths), lengths))) %>%
+        mutate(
+          period_total = max(seq_along(grp)), 
+          counter = seq_along(grp), 
+          start_date = min(date)
+        ) %>%
+        ungroup() %>%
+        mutate(trajectory = factor(trajectory, levels = c("Increasing", "Stable", "Decreasing", "Sparse"))) %>%
+        mutate(
+          alert_trend = case_when(
+            trajectory == "Increasing" ~ "red",
+            trajectory == "Stable" ~ "yellow",
+            trajectory == "Decreasing" ~ "blue",
+            trajectory == "Sparse" ~ "lightgray"
+          ),
+          alert_trend = factor(alert_trend, levels = c("red", "yellow", "blue", "lightgray"))
+        ) %>%
+        select(
+          date,
+          n_increasing,
+          fitted,
+          alert_trend
+        )
+    })
+
     df <- myProfile$get_api_data(url) %>%
       pluck("timeSeriesData") %>%
       clean_names() %>%
@@ -668,6 +1023,35 @@ server <- function(input, output, session) {
   plotly_plot = reactive({
     color_scale <- c('NA' = 'gray', 'None' = 'blue', 'Warning' = 'yellow', 'Alert' = 'red')
     
+    # Adding annotations as sub-legends
+    topy = 0.9
+    middley = 0.55
+    bottomy = 0.125
+    
+    annotations <- list(
+      # annotations for 1st legendgroup
+      list(x = 1.1, y = topy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'None', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = topy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = topy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Warning', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = topy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = topy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Alert', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = topy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      # annotations for 2nd legendgroup
+      list(x = 1.1, y = middley, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'None', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = middley, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = middley-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Warning', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = middley-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = middley-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Alert', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = middley-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      # annotations for 3rd legendgroup
+      list(x = 1.1, y = bottomy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Decreasing', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = bottomy, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = bottomy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Stable', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = bottomy-0.05, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10),
+      list(x = 1.1, y = bottomy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Increasing', xanchor = 'left', align = 'left'),
+      list(x = 1.1, y = bottomy-0.1, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 1, borderpad = 1, height = 10, width = 10)
+    )
+    
     percent_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~percent, type = "scatter", mode = "lines+markers",
                             marker = list(
                               color = ~alert_percent,
@@ -701,6 +1085,66 @@ server <- function(input, output, session) {
                              name = "Count of Increasing Regions")
     # subplots object
     plt <- subplot(percent_plot, alert_plot, trending_plot, nrows = 3, shareX = TRUE) %>%
+      layout(
+        title = list(text = paste0(selected$state,': ', selected$CCDD), x = 0.4),
+        hovermode = "x unified",
+        xaxis = list(
+          title = "<b>Date<b>",
+          showspikes = TRUE,
+          spikemode = "across",
+          ticks = "outside",
+          spikedash = "dot",
+          spikecolor = "black",
+          spikethickness = -2,
+          tickformat="%Y-%m-%d",
+          ticklabelmode="period",
+          tickangle = 0
+        ),
+        yaxis = list(
+          title = list(text=paste0("<b>%</b>"),
+                       font = list(
+                         color = "grey")),
+          tickfont = list(color = "grey"), # 0s are offset
+          showline = TRUE,
+          showgrid = TRUE,
+          rangemode = 'tozero',
+          ticks = "outside",
+          showgrid = FALSE
+        ),
+        yaxis2 = list(
+          title = list(text = "<b>Alerts<b>",
+                       font = list(
+                         color = "rgb(22, 96, 167)")),
+          tickfont = list(color = "rgb(22, 96, 167)"),
+          showline = TRUE,
+          showgrid = TRUE,
+          rangemode = "tozero",
+          ticks = "outside"
+        ),
+        yaxis3 = list(
+          title = list(text = "<b>Increasing<br>Trend<b>",
+                       font = list(
+                         color = "rgb(60, 0, 155)")),
+          tickfont = list(color = "rgb(60, 0, 155)"),
+          showline = TRUE,
+          showgrid = TRUE,
+          rangemode = "tozero",
+          ticks = "outside"
+        ),
+        shapes = list(
+          type = "line",
+          x0 = selected$maps_date,
+          x1 = selected$maps_date,
+          y0 = 0,
+          y1 = 1,
+          yref = 'paper',
+          line = list(color = "black", dash='dash', width = 2)
+        ), 
+        annotations = annotations,
+        legend = list(tracegroupgap = 93)
+      ) %>% 
+      event_register(.,'plotly_click')
+    
       layout(title = list(text = paste0(selected$state,': ', selected$CCDD), x = 0.4),
              hovermode = "x unified",
              xaxis = list(
@@ -917,8 +1361,8 @@ server <- function(input, output, session) {
       lapply(htmltools::HTML)
     
     pal_inc <- colorFactor(
-      palette = c('blue','yellow','red'), 
-      levels = c('Decreasing', 'Stable', 'Increasing'),
+      palette = c('blue','yellow','red','lightgray'),
+      levels = c('Decreasing', 'Stable', 'Increasing', 'Sparse'),
       na.color = "black")
     
     inc_leaf <-
