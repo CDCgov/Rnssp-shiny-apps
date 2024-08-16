@@ -15,6 +15,9 @@ params:
   joincount_alert: NA
   joincount_warningoralert: NA
   joincount_inc: NA
+  inc_progress: NA
+  plotly_width: NA
+  plotly_height: NA
 ---
 
 <style>
