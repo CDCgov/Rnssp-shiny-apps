@@ -35,12 +35,12 @@ lapply("Rnssp", library, character.only = TRUE)
 # Help Popup
 helpPopup <- function(
     id,
+    word = "methods",
     title,
     content,
     placement = c("right", "top", "left", "bottom"),
     trigger = c("click", "hover", "focus", "manual"),
-    icon_name = "question-circle",
-    icon_style = "color:red") {
+    icon_style = "color:red; cursor:pointer;") {
   
   tagList(
     singleton(
@@ -54,16 +54,15 @@ helpPopup <- function(
       )
     ),
     HTML(id),
-    tags$a(
-      href = "#",
-      style = "margin-left:10px;",
+    tags$span(
+      word,
+      style = paste("margin-left:10px;", icon_style),
       `data-toggle` = "popover",
       title = title,
       `data-content` = content,
       `data-animation` = TRUE,
       `data-placement` = match.arg(placement, several.ok = TRUE)[1],
-      `data-trigger` = match.arg(trigger, several.ok = TRUE)[1],
-      shiny::icon(name = icon_name, class = "shinyhelper-icon", style = icon_style)
+      `data-trigger` = match.arg(trigger, several.ok = TRUE)[1]
     )
   )
 }
@@ -152,7 +151,6 @@ EndDate_0 <- Sys.Date() %m-%
   days(1)
 
 # User interface object
-
 ui <- tagList(
   useShinyjs(),
   tags$head(
@@ -182,24 +180,22 @@ ui <- tagList(
       sidebarLayout(
         sidebarPanel(width=3,
                      helpPopup(
-                       id = "", title = "",
+                       id = "", word="App Summary", title = "",
                        content = paste0(
-                         "This app computes and tests for temporal alerts in 3 statewide ",
-                         "diagnostics of syndrome severity given a user-selected state, ",
-                         "CC and DD category, and date range. The 3 diagnostics are: 1) ",
+                         "This app tests for and visualizes both temporal and spatial alerts for regions with a user-selected State, for a user-selected CC & DD Category, and over a user-defined time period. Temporal alerts are tested for using 3 statewide ",
+                         "diagnostics of syndrome severity. The 3 state-wide temporal diagnostics are: 1) ",
                          "total statewide percent of ED visits, 2) number of alerting ",
                          "counties/regions, and 3) the number of counties/regions ",
-                         "estimated to have increasing case counts. The second two ",
-                         "diagnostics have been labelled 'Alerts of Alerts'. Data ",
-                         "associated to each selected date can be visualized as a set of ",
-                         "choropleth maps along with the results of statistical tests ",
+                         "estimated, through the use of Generative Additive Modeling, to have increasing case counts. The second two ",
+                         "diagnostics are variants of what has been coined 'Alerts of Alerts'. The region-level data associated to or underlying each of these state-level diagnostics ",
+                         "can be visualized for the currently selected date as a set of ",
+                         "choropleth maps. Presented with each of these maps are the results of statistical tests ",
                          "for spatial autocorrelation (i.e., spatial clustering)."
                        ),
-                       placement = "right", trigger = "focus",
-                       icon_name = "question-circle",
+                       placement = "right", trigger = "click",
                        icon_style = "color:blue;font-size:15px"
                      ),
-                     selectInput("State", "State", states, 'Idaho'),
+                     selectInput("State", "State", states, 'Florida'),
                      selectInput("CCDD", "CC & DD Category", ccdd_cats, 
                                  ccdd_cats[which(grepl("COVID-Specific", ccdd_cats))]),
                      fluidRow(
@@ -220,95 +216,143 @@ ui <- tagList(
         ),
         mainPanel(
           fluidRow(
-            box(helpPopup(id = "", title = "",
-                          content = paste0("This plot uses the <a href=",
-                                           "'https://github.com/CDCgov/Rnssp' target=",
-                                           "'_blank'>Rnssp</a> Switch (Adaptive ",
-                                           "Regression/EWMA) alert detection algorithm to test ",
-                                           "for Alerts in both the first and second subplots. ",
-                                           "The third subplot uses an estimated slope ",
-                                           "threshold to signal Alerts. Clicking on a ",
-                                           "particular date will plot the data associated with ",
-                                           "that date as a family of choropleth maps and will ",
-                                           "run a battery of tests for spatial autocorrelation ",
-                                           "in the plotted quantity."
-                          ),
-                          placement = "right", trigger = "focus",
-                          icon_name = "question-circle",
-                          icon_style = "color:blue;font-size:10px"),
-                title = h3("Alerts of Alerts Time Series", 
-                           style = 'font-size:18px; font-weight: bold;'),
-                withSpinner(plotlyOutput(outputId = "tsPlotly", 
-                                         height = "320px")),
-                width = 12),
-            box(helpPopup(id = "", title = "",
-                          content = paste0("This map shows the spatial ",
-                                           "distribution of p-values corresponding to each ",
-                                           "respective region’s test for temporal alerts along ",
-                                           "with the results of the <a href=",
-                                           "'https://www.rdocumentation.org/packages/spdep/versions/1.2-8/topics/moran.test' ",
-                                           "target='_blank'>Global Moran's I</a> statistical ",
-                                           "test for spatial autocorrelation (i.e., ",
-                                           "clustering) of these p-values. Moran’s I operates ",
-                                           "on continuous data; small p-values for the Global ",
-                                           "Moran's I test indicate that both regions with ",
-                                           "low temporal p-values and regions with high ",
-                                           "temporal p-values are spatially clustered, ",
-                                           "respectively."),
-                          placement = "bottom", trigger = "focus",
-                          icon_name = "question-circle",
-                          icon_style = "color:blue;font-size:10px"),
-                title = h3("Spatial Distribution of p-values", 
-                           style = 'font-size:18px; font-weight: bold; height: 30px'),
-                withSpinner(leafletOutput("p_choropleth", height = "280px")),
-                box(h3(textOutput('date1'), 
-                       style = 'font-size:14px; font-weight: bold;'),
-                    h1(textOutput('globalmoran'), style = 'font-size:14px;')),
-                width = 4),
-            box(helpPopup(id = "", title = "",
-                          content = paste0("This map shows the spatial ",
-                                           "distribution of Alerts computed via the Switch ",
-                                           "(Adaptive Regression/EWMA) algorithm along with ",
-                                           "the results of two <a href=",
-                                           "'https://www.rdocumentation.org/packages/spdep/versions/1.2-8/topics/joincount.test' ",
-                                           "target='_blank'>Join Count</a> statistical tests ",
-                                           "for global spatial clustering. The first test ",
-                                           "tests whether Alerts (red) are spatially ",
-                                           "clustered, while the second test tests whether ",
-                                           "both Alerts and Warnings (red and yellow), treated ",
-                                           "as a single grouping, are spatially clustered."),
-                          placement = "bottom", trigger = "focus",
-                          icon_name = "question-circle",
-                          icon_style = "color:blue;font-size:10px"),
-                title = h3("Spatial Distribution of Alerts", 
-                           style = 'font-size:18px; font-weight: bold; height: 30px; color: rgb(22, 96, 167)'),
-                withSpinner(leafletOutput("alerts_choropleth", height = "280px")),
-                box(h3(textOutput('date2'), 
-                       style = 'font-size:14px; font-weight: bold;'),
-                    h1(textOutput('joincount_alert'), 
-                       style = 'font-size:14px;'),
-                    h1(textOutput('joincount_warning_or_alert'), 
-                       style = 'font-size:14px;')),
-                width = 4),
-            box(helpPopup(id = "", title = "",
-                          content = paste0("This map shows the spatial 
-                          distribution of Alerts computed via slope ",
-                                           "thresholds along with the results of a single ",
-                                           "<a href=",
-                                           "'https://www.rdocumentation.org/packages/spdep/versions/1.2-8/topics/joincount.test' ",
-                                           "target='_blank'>Join Count</a> statistical test ",
-                                           "for global spatial clustering. The test tests ",
-                                           "whether Alerts (red) are spatially ",
-                                           "clustered."),
-                          placement = "bottom", trigger = "focus",
-                          icon_name = "question-circle",
-                          icon_style = "color:blue;font-size:10px"),
-                title = h3("Spatial Distribution of Smoothed Slopes", 
-                           style = 'font-size:18px; font-weight: bold; height: 30px; color: rgb(60, 0, 155)'),
-                withSpinner(leafletOutput("increasing_choropleth", height = "280px")),
-                box(h3(textOutput('date3'), style = 'font-size:14px; font-weight: bold;'),
-                    h1(textOutput('joincount_inc'), style = 'font-size:14px;')),
-                width = 4)
+            box(
+              title = div(
+                h3("Alerts of Alerts Time Series", 
+                   style = 'font-size:18px; font-weight: bold; display: inline-block;'),
+                helpPopup(
+                  id = "", 
+                  word="Methods", 
+                  title = "Alerts of Alerts Time Series",
+                  content = paste0(
+                    "This plot depicts time series for each of three state-wide temporal diagnostics of syndrome burden: 1) ",
+                    "total statewide percent of ED visits, 2) number of alerting ",
+                    "counties/regions, determined via the use of the the <a href=",
+                    "'https://github.com/CDCgov/Rnssp' target=",
+                    "'_blank'>Rnssp</a> Switch (Adaptive ",
+                    "Regression/EWMA) alert detection algorithm, and 3) the number of counties/regions ",
+                    "estimated--through the use of Generative Additive Modeling--to have increasing case counts. ",
+                    "The two leading subplots subsequently apply the <a href=",
+                    "'https://github.com/CDCgov/Rnssp' target=",
+                    "'_blank'>Rnssp</a> Switch (Adaptive ",
+                    "Regression/EWMA) alert detection algorithm to test ",
+                    "for Alerts in these aggregated series. ",
+                    "The third subplot re-applies the Generalized Additive Model estimation method to estimate whether ",
+                    "the number of regions estimated to have increasing case counts is itself increasing. Clicking on a ",
+                    "particular date (indicated by a vertical dashed line) plots the spatial data and statistical tests associated with ",
+                    "that date."
+                  ),
+                  placement = "right", trigger = "click",
+                  icon_style = "color:blue;font-size:10px"
+                )
+              ),
+              withSpinner(
+                plotlyOutput(outputId = "tsPlotly", height = "400px")
+              ),
+              width = 12
+            ),
+            box(
+              title = div(
+                h3("Spatial Distribution of p-values", 
+                   style = 'font-size:18px; font-weight: bold; display: inline-block; margin-right: 10px;'),
+                helpPopup(
+                  id = "", 
+                  word="Methods", 
+                  title = "Spatial Distribution of p-values",
+                  content = paste0(
+                    "This map shows the spatial ",
+                    "distribution of p-values corresponding to each ",
+                    "respective region’s test for temporal alerts along ",
+                    "with the results of the <a href=",
+                    "'https://www.rdocumentation.org/packages/spdep/versions/1.2-8/topics/moran.test' ",
+                    "target='_blank'>Global Moran's I</a> statistical ",
+                    "test for spatial autocorrelation (i.e., ",
+                    "clustering) of these p-values. Moran’s I operates ",
+                    "on continuous data; small p-values for the Global ",
+                    "Moran's I test indicate that both regions with ",
+                    "low temporal p-values and regions with high ",
+                    "temporal p-values are spatially clustered, ",
+                    "respectively."
+                  ),
+                  placement = "bottom", trigger = "click",
+                  icon_style = "color:blue;font-size:10px"
+                )
+              ),
+              withSpinner(leafletOutput("p_choropleth", height = "200px")),
+              box(
+                h3(textOutput('date1'), 
+                   style = 'font-size:14px; font-weight: bold;'),
+                h1(textOutput('globalmoran'), style = 'font-size:14px;')
+              ),
+              width = 4
+            ),
+            box(
+              title = div(
+                h3("Spatial Distribution of Alerts", 
+                   style = 'font-size:18px; font-weight: bold; height: 30px; color: rgb(22, 96, 167); display: inline-block; margin-right: 10px;'),
+                helpPopup(
+                  id = "", 
+                  word="Methods", 
+                  title = "Spatial Distribution of Alerts",
+                  content = paste0(
+                    "This map shows the spatial ",
+                    "distribution of Alerts computed via the Switch ",
+                    "(Adaptive Regression/EWMA) algorithm along with ",
+                    "the results of two <a href=",
+                    "'https://www.rdocumentation.org/packages/spdep/versions/1.2-8/topics/joincount.test' ",
+                    "target='_blank'>Join Count</a> statistical tests ",
+                    "for global spatial clustering. The first test ",
+                    "tests whether Alerts (red) are spatially ",
+                    "clustered, while the second test tests whether ",
+                    "both Alerts and Warnings (red and yellow), treated ",
+                    "as a single grouping, are spatially clustered."
+                  ),
+                  placement = "bottom", trigger = "click",
+                  icon_style = "color:blue;font-size:10px"
+                )
+              ),
+              withSpinner(leafletOutput("alerts_choropleth", height = "200px")),
+              box(
+                h3(textOutput('date2'), 
+                   style = 'font-size:14px; font-weight: bold;'),
+                h1(textOutput('joincount_alert'), 
+                   style = 'font-size:14px;'),
+                h1(textOutput('joincount_warning_or_alert'), 
+                   style = 'font-size:14px;')
+              ),
+              width = 4
+            ),
+            box(
+              title = div(
+                h3("Spatial Distribution of Trends", 
+                   style = 'font-size:18px; font-weight: bold; height: 30px; color: rgb(60, 0, 155); display: inline-block; margin-right: 10px;'),
+                helpPopup(
+                  id = "", 
+                  word="Methods", 
+                  title = "Spatial Distribution of Trends",
+                  content = paste0(
+                    "This map shows the spatial distribution of trends in case counts ",
+                    "estimated via <a href='https://www.rdocumentation.org/packages/mgcv/versions/1.9-1/topics/gam' ",
+                    "target='_blank'>Generalized Additive Models</a> (GAMs). ",
+                    "Only those regions for which more than 20% of the selected dates contain non-zero ",
+                    "case counts are retained for GAM estimation analysis. ",
+                    "The removed regions are denoted as 'Sparse'. ",
+                    "Each series is treated as a binomial process. The regions which are estimated to have an 'Increasing' slope are subjected to a ",
+                    "<a href='https://www.rdocumentation.org/packages/spdep/versions/1.2-8/topics/joincount.test' ",
+                    "target='_blank'>Join Count</a> statistical test for global spatial clustering. ",
+                    "The test tests whether regions labeled 'Increasing' (red) are spatially clustered."
+                  ),
+                  placement = "bottom", trigger = "click",
+                  icon_style = "color:blue;font-size:10px"
+                )
+              ),
+              withSpinner(leafletOutput("increasing_choropleth", height = "200px")),
+              box(
+                h3(textOutput('date3'), style = 'font-size:14px; font-weight: bold;'),
+                h1(textOutput('joincount_inc'), style = 'font-size:14px;')
+              ),
+              width = 4
+            )
           )
         )
       )
@@ -332,23 +376,10 @@ server <- function(input, output, session) {
                                    county_sf = NULL, df_sf = NULL)
   
   selected <- reactiveValues(state = NULL, CCDD = NULL, startDate = NULL, endDate = NULL, maps_date = NULL)
+  plotly_dims <- reactiveValues(width = NULL, height = NULL)
   stat_test <- reactiveValues(globalMoran=NULL, JoinCount_alert=NULL,
                               JoinCount_warning_or_alert=NULL,
                               JoinCount_increasing=NULL)
-  
-  spline_classifier <- function(df, t, y) {
-    
-    t <- deparse(substitute(t))
-    y <- deparse(substitute(y))
-    
-    .ss <- smooth.spline(x = as.numeric(df[[t]]), y = df[[y]], spar = 0.5)
-    .fitted <- predict(.ss, as.numeric(df[[t]]))$y
-    .deriv1 <- predict(.ss, as.numeric(df[[t]]), deriv = 1)$y
-    .deriv2 <- predict(.ss, as.numeric(df[[t]]), deriv = 2)$y
-    
-    bind_cols(df, fitted = .fitted, deriv1 = .deriv1, deriv2 = .deriv2)
-    
-  }
   
   get_and_mutate_dfs <- function(input) {
     
@@ -749,186 +780,6 @@ server <- function(input, output, session) {
         )
     })
     
-    df <- myProfile$get_api_data(url) %>%
-      pluck("timeSeriesData") %>%
-      clean_names() %>%
-      mutate(
-        date = as.Date(date), 
-        alert_percent = case_when(
-          color %in% c("grey", "blue") ~ "None",
-          color == "yellow" ~ "Warning",
-          color == "red" ~ "Alert"
-        ),
-        alert_count = case_when(
-          color_data_count %in% c("grey", "blue") ~ "None",
-          color_data_count == "yellow" ~ "Warning",
-          color_data_count == "red" ~ "Alert"
-        )
-      ) %>%
-      separate(line_label, c("state_abbr", "county"), sep = " - ") %>%
-      select(
-        state_abbr, 
-        fips = facilityfips_id,
-        county, 
-        date,
-        data_count, 
-        all_count, 
-        percent = count, 
-        alert_percent,
-        alert_count,
-        p = levels,
-        color,
-        color_data_count
-      ) %>%
-      arrange(fips, date) %>%
-      mutate(
-        warning_or_alert_percent_factor = ifelse(
-          alert_percent %in% c("Warning","Alert"), 1, 0),
-        alert_percent_factor = ifelse(
-          alert_percent == "Alert", 1, 0),
-        alert_count_factor = ifelse(
-          alert_count == "Alert", 1, 0),
-        p = as.numeric(p)
-      )
-    
-    #-----Compute each of total % CCDD alerts, alerts of alerts, and increasing CCDD percent alerts-----
-    
-    # Compute alerts over state-wide CCDD % df
-    
-    df_switch_percent <- df %>% 
-      group_by(date) %>%
-      summarise(total_CCDD = sum(data_count),
-                total_all = sum(all_count),
-                .groups = 'drop') %>%
-      mutate(percent = total_CCDD / total_all) %>%
-      { 
-        nan_dates <- .$date[is.nan(.$percent)]
-        if(length(nan_dates) > 0) { 
-          warning(paste("0 statewide visits reported for dates:", paste(nan_dates, collapse = ", "), ". CCDD % treated as 0."))
-        } 
-        mutate(., percent = ifelse(is.nan(percent), 0, percent))
-      } %>%
-      select(date, percent) %>%
-      alert_switch(., t = date, y = percent) %>%
-      select(
-        date,
-        percent,
-        alert_percent = alert,
-        p.value_percent = p.value
-      )
-    
-    # Compute alerts over total alert counts df
-    
-    df_switch_alert_count = df %>%
-      group_by(date) %>%
-      summarise(count = sum(alert_percent == "Alert")) %>%
-      alert_switch(., t=date, y=count) %>%
-      select(
-        date,
-        count,
-        alert_alert = alert,
-        p.value_alert = p.value
-      )
-    
-    # Compute trend classification (i.e., increasing, decreasing, stable) alerts of alerts df
-    
-    ed_county_waves <- df %>%
-      group_by(fips) %>%
-      mutate(
-        seven_day = slide(
-          .x = tibble(data_count, all_count),
-          .f = function(.x){
-            (sum(.x$data_count) / sum(.x$all_count)) * 100
-          },
-          .before = 6, 
-          .complete = FALSE
-        ),
-        seven_day = as.numeric(seven_day),
-        seven_day = ifelse(is.nan(seven_day), 0, seven_day)
-      ) %>%
-      ungroup() %>%
-      mutate(fips_copy = fips) %>%
-      nest(data = -fips) %>%
-      mutate(
-        ss = map(.x = data, .f = function(.x) {
-          
-          .ss <- smooth.spline(x = as.numeric(.x$date), y = .x$seven_day, spar = 0.5)
-          .fitted <- predict(.ss, as.numeric(.x$date))$y
-          .deriv1 <- predict(.ss, as.numeric(.x$date), deriv = 1)$y
-          
-          data.frame(spline = .fitted, deriv1 = .deriv1)
-          
-        })
-      ) %>%
-      unnest(c(data, ss)) %>%
-      group_by(fips) %>%
-      mutate(
-        row = row_number(), 
-        trajectory = case_when(
-          abs(deriv1) < 0.01 ~ "Stable",
-          deriv1 <= -0.01 ~ "Decreasing",
-          deriv1 >= 0.01 ~ "Increasing"
-        )
-      ) %>%
-      group_by(fips, grp = with(rle(trajectory), rep(seq_along(lengths), lengths))) %>%
-      mutate(
-        period_total = max(seq_along(grp)), 
-        counter = seq_along(grp), 
-        start_date = min(date)
-      ) %>%
-      ungroup() %>%
-      mutate(trajectory = factor(trajectory, levels = c("Increasing", "Stable", "Decreasing")),
-             inc_factor = ifelse(trajectory == "Increasing", 1, 0)
-      )
-    
-    ed_increasing_status <- ed_county_waves %>%
-      group_by(date) %>%
-      summarise(
-        data_count = sum(data_count), 
-        all_count = sum(all_count), 
-        n_increasing = sum(trajectory == "Increasing"),
-        n_decreasing = sum(trajectory == "Decreasing"), 
-        n_stable = sum(trajectory == "Stable"), 
-        n_total = n_distinct(fips)
-      ) %>%
-      mutate(
-        percent = (data_count / all_count) * 100, 
-        n_check = n_increasing + n_decreasing + n_stable
-      ) %>%
-      ungroup() %>%
-      mutate(
-        percent_increasing = (n_increasing / n_total) * 100,
-        percent_decreasing = (n_decreasing / n_total) * 100, 
-        percent_stable = (n_stable / n_total) * 100
-      )
-    
-    ed_anomalies_trend <- ed_increasing_status %>%
-      nest(data = everything()) %>%
-      mutate(
-        spline_out = map(.x = data, .f = function(.x) {
-          
-          .ss <- smooth.spline(x = as.numeric(.x$date), y = .x$n_increasing, spar = 0.5)
-          .fitted <- predict(.ss, as.numeric(.x$date))$y
-          .deriv1 <- predict(.ss, as.numeric(.x$date), deriv = 1)$y
-          
-          data.frame(fitted = .fitted, deriv1 = .deriv1)
-          
-        })
-      ) %>%
-      unnest(c(data, spline_out)) %>%
-      mutate(
-        alert_trend = case_when(
-          deriv1 > 0.5 ~ "red",
-          deriv1 <= 0.5 ~ "blue"
-        ),
-        alert_trend = factor(alert_trend, levels = c("red", "blue"))
-      ) %>%
-      select(
-        date,
-        n_increasing,
-        alert_trend
-      )
-    
     #---------------------------------------------------------------------------------------
     
     df_all = df_switch_alert_count %>% 
@@ -985,7 +836,17 @@ server <- function(input, output, session) {
       # Compute local moran df
       pts <- st_centroid(st_transform(df_sf_non_null, 3857))
       #> Warning: st_centroid assumes attributes are constant over geometries of x
-      nb <- dnearneigh(pts, 0, 1000000)
+      #nb <- dnearneigh(pts, 0, 100000)
+      
+      # Convert to a matrix of coordinates
+      coords <- st_coordinates(pts)
+      
+      # Find k nearest neighbors
+      k <- 20
+      k_actual = min(k, nrow(df_sf_non_null)-1)
+      knn <- knearneigh(coords, k = k_actual)
+      nb <- knn2nb(knn)
+      
       # Moran's I with Inverse Distance Weighting with alpha(exponent) = 1
       listw <- nb2listwdist(nb, as(pts, "Spatial"), type = "idw",
                             alpha = 1, zero.policy = TRUE, style = "raw")
@@ -1062,7 +923,7 @@ server <- function(input, output, session) {
                               "<br>Date:</b>", date,
                               "<br>%:</b>", format(percent, big.mark = ",")
                             ),
-                            name = "% CC & DD")
+                            name = "% CC & DD", legendgroup="1st")
     
     alert_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~count, type = 'scatter', mode = 'lines+markers',
                           marker = list(color = ~alert_alert, size=25/log(dim(Reactive_dfs$df_1)[1])),
@@ -1072,17 +933,27 @@ server <- function(input, output, session) {
                             "<br>Date:</b>", date,
                             "<br>Count:</b>", format(count, big.mark = ",")
                           ),
-                          name = "Count of Alerting Regions")
+                          name = "Count of Alerting Regions", legendgroup="2nd")
     
-    trending_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~n_increasing, type = 'scatter', mode = 'lines+markers',
-                             marker = list(color = ~alert_trend, size=25/log(dim(Reactive_dfs$df_1)[1])),
-                             line = list(color = "rgb(60, 0, 155)", width = 12/log(dim(Reactive_dfs$df_1)[1])),
-                             hoverinfo = "text",
-                             text = ~ paste(
-                               "<br>Date:</b>", date,
-                               "<br># Increasing:</b>", format(n_increasing, big.mark = ",")
-                             ),
-                             name = "Count of Increasing Regions")
+    trending_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date) %>%
+      add_trace(y = ~fitted, type = 'scatter', mode = 'lines',
+                line = list(color = "rgb(60, 0, 155)", width = 12/log(dim(Reactive_dfs$df_1)[1])),
+                hoverinfo = "text",
+                text = ~ paste(
+                  "<br>Date:</b>", date,
+                  "<br>fitted:</b>", format(fitted, big.mark = ",")
+                ),
+                name = "GAM-estimated trend", legendgroup="3rd"
+      ) %>%
+      add_trace(y = ~n_increasing, type = 'scatter', mode = 'markers',
+                marker = list(color = ~alert_trend, size = 25/log(dim(Reactive_dfs$df_1)[1]), opacity = 0.5),
+                hoverinfo = "text",
+                text = ~ paste(
+                  "<br>Date:</b>", date,
+                  "<br># Increasing:</b>", format(n_increasing, big.mark = ",")
+                ),
+                name = "Count of Regions with Increasing Trend", legendgroup="3rd")
+    
     # subplots object
     plt <- subplot(percent_plot, alert_plot, trending_plot, nrows = 3, shareX = TRUE) %>%
       layout(
@@ -1145,77 +1016,13 @@ server <- function(input, output, session) {
       ) %>% 
       event_register(.,'plotly_click')
     
-    layout(title = list(text = paste0(selected$state,': ', selected$CCDD), x = 0.4),
-           hovermode = "x unified",
-           xaxis = list(
-             title = "<b>Date<b>",
-             showspikes = TRUE,
-             spikemode = "across",
-             ticks = "outside",
-             spikedash = "dot",
-             spikecolor = "black",
-             spikethickness = -2,
-             tickformat="%Y-%m-%d",
-             ticklabelmode="period",
-             tickangle = 0
-           ),
-           yaxis = list(
-             title = list(text=paste0("<b>%</b>"),
-                          font = list(
-                            color = "grey")),
-             tickfont = list(color = "grey"), # 0s are offset
-             showline = TRUE,
-             showgrid = TRUE,
-             rangemode = 'tozero',
-             ticks = "outside",
-             showgrid = FALSE
-           ),
-           yaxis2 = list(
-             title = list(text = "<b>Alerts<b>",
-                          font = list(
-                            color = "rgb(22, 96, 167)")),
-             tickfont = list(color = "rgb(22, 96, 167)"),
-             showline = TRUE,
-             showgrid = TRUE,
-             rangemode = "tozero",
-             ticks = "outside"
-           ),
-           yaxis3 = list(
-             title = list(text = "<b>Rising<b>",
-                          font = list(
-                            color = "rgb(60, 0, 155)")),
-             tickfont = list(color = "rgb(60, 0, 155)"),
-             showline = TRUE,
-             showgrid = TRUE,
-             rangemode = "tozero",
-             ticks = "outside"
-           ),
-           shapes = list(
-             type = "line",
-             x0 = selected$maps_date,
-             x1 = selected$maps_date,
-             y0 = 0,
-             y1 = 1,
-             yref = 'paper',
-             line = list(color = "black", dash='dash', width = 2)
-           )
-    ) %>% 
-      event_register(.,'plotly_click')
-    
-    # Adding annotations for the second legend
-    annotations <- list(
-      list(x = 1.1, y = 0.4, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'None', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = 0.4, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'blue', bordercolor = 'black', borderwidth = 2, borderpad = 2, height = 10, width = 10),
-      list(x = 1.1, y = 0.285, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Warning', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = 0.285, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'yellow', bordercolor = 'black', borderwidth = 2, borderpad = 2, height = 10, width = 10),
-      list(x = 1.1, y = 0.2, xref = 'paper', yref = 'paper', showarrow = FALSE, text = 'Alert', xanchor = 'left', align = 'left'),
-      list(x = 1.1, y = 0.2, xref = 'paper', yref = 'paper', showarrow = FALSE, text = '', bgcolor = 'red', bordercolor = 'black', borderwidth = 2, borderpad = 2, height = 10, width = 10)
-    )
-    
-    plt <- plt %>% layout(annotations = annotations)
-    
     plt %>%
       config(modeBarButtons = list(list("toImage"), list("autoScale2d")))
+  })
+  
+  observe({
+    plotly_dims$width <- session$clientData$output_tsPlotly_width
+    plotly_dims$height <- session$clientData$output_tsPlotly_height
   })
   
   ##------------Plot Leaflet Choropleths---------------------------
@@ -1240,6 +1047,8 @@ server <- function(input, output, session) {
     p_leaf <-
       leaflet() %>%
       leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
+      leaflet.extras::addFullscreenControl() %>%  # Add fullscreen control
+      leaflet.extras::addResetMapButton() %>%  # Add reset button
       addPolylines(
         data = selected_state$state_sf,
         opacity = 1,
@@ -1306,6 +1115,8 @@ server <- function(input, output, session) {
     
     alert_leaf <- leaflet() %>%
       leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
+      leaflet.extras::addFullscreenControl() %>%  # Add fullscreen control
+      leaflet.extras::addResetMapButton() %>%  # Add reset button
       addPolylines(
         data = selected_state$state_sf,
         opacity = 1,
@@ -1356,7 +1167,7 @@ server <- function(input, output, session) {
       "<strong>County: </strong>%s<br/>
         <strong>Slope: </strong>%s<br/>",
       selected_state$df_sf$NAME,
-      round(selected_state$df_sf$deriv1, digits = 3)
+      round(selected_state$df_sf$deriv, digits = 3)
     ) %>%
       lapply(htmltools::HTML)
     
@@ -1368,6 +1179,8 @@ server <- function(input, output, session) {
     inc_leaf <-
       leaflet() %>%
       leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
+      leaflet.extras::addFullscreenControl() %>%  # Add fullscreen control
+      leaflet.extras::addResetMapButton() %>%  # Add reset button
       addPolylines(
         data = selected_state$state_sf,
         opacity = 1,
@@ -1443,10 +1256,7 @@ server <- function(input, output, session) {
   
   observeEvent(input$go, {
     
-    withProgress(
-      dfs <- get_and_mutate_dfs(input),
-      message="Loading data...", value = 0.99
-    )
+    dfs <- get_and_mutate_dfs(input)
     
     # Update the reactive values
     Reactive_dfs$df_1 <- dfs[[1]]
@@ -1545,7 +1355,7 @@ server <- function(input, output, session) {
           x1 = selected$maps_date,
           y0 = min(df_temp$percent),
           y1 = max(df_temp$percent),
-          line = list(color = "black", width = 2)
+          line = list(color = "black", dash="dash", width = 2)
         ),
         title=paste0("<b>", selected_county, ": ", input$CCDD,"<b>"),
         yaxis = list(title=paste0("<b>Percent (%)<b>")),
@@ -1619,7 +1429,7 @@ server <- function(input, output, session) {
           x1 = selected$maps_date,
           y0 = min(df_temp$percent),
           y1 = max(df_temp$percent),
-          line = list(color = "black", width = 2)
+          line = list(color = "black", dash="dash", width = 2)
         ),
         title=paste0("<b>", selected_county, ": ", input$CCDD,"<b>"),
         yaxis = list(title=paste0("<b>Percent (%)<b>")),
@@ -1643,7 +1453,8 @@ server <- function(input, output, session) {
              NAME,
              date,
              percent,
-             spline,
+             fitted,
+             deriv,
              color) %>%
       as.data.frame() %>%
       mutate(NAME = as.character(NAME))
@@ -1669,7 +1480,7 @@ server <- function(input, output, session) {
       
       df_temp_before = df_temp %>% filter(date <= selected$maps_date)
       df_temp_after = df_temp %>% filter(date >= selected$maps_date)
-      df_spline = subset(df_temp_before, df_temp_before$date > as.Date(selected$maps_date)-7)
+      df_gam = subset(df_temp_before, df_temp_before$date <= as.Date(selected$maps_date))
       
       plot_ly() %>%
         add_trace(data=df_temp_before, x=~date, y=~percent, type='scatter', mode='lines+markers',
@@ -1689,14 +1500,15 @@ server <- function(input, output, session) {
                     "<br>Date:</b>", date,
                     "<br>%:</b>", format(percent, big.mark = ",")
                   )) %>%
-        add_trace(data=df_spline, x=~date, y=~spline, type='scatter', mode='lines',
+        add_trace(data=df_gam, x=~date, y=~fitted, type='scatter', mode='lines',
                   line = list(color = "rgb(60, 0, 155)", width=5),
                   #marker = list(color = ~color),
                   hoverinfo = "text",
-                  name = paste0("7-Day Smoothing Spline"),
+                  name = paste0("GAM-based trend estimate "),
                   text = ~ paste(
                     "<br>Date:</b>", date,
-                    "<br>%:</b>", format(spline, big.mark = ",")
+                    "<br>%:</b>", format(fitted, big.mark = ","),
+                    "<br>slope:</b>", format(deriv, big.mark = ",")
                   )) %>%
         layout(shapes = list(
           type = "line",
@@ -1704,7 +1516,7 @@ server <- function(input, output, session) {
           x1 = selected$maps_date,
           y0 = min(df_temp$percent),
           y1 = max(df_temp$percent),
-          line = list(color = "black", width = 2)
+          line = list(color = "black", dash="dash", width = 2)
         ),
         title=paste0("<b>", selected_county, ": ", input$CCDD,"<b>"),
         yaxis = list(title=paste0("<b>Percent (%)<b>")),
@@ -1753,7 +1565,7 @@ server <- function(input, output, session) {
   output$report <- downloadHandler(
     filename = paste0("Alerts_of_Alerts_report_", Sys.Date(), ".html"),
     content = function(file) {
-      withProgress(message = "Downloading report...", value = 0.99, {
+      withProgress(message = "Downloading report...", value = 0, {
         temp_dir <- tempdir()
         tempReport <- file.path(temp_dir, "AoA_report.Rmd")
         file.copy("AoA_report.Rmd", tempReport, overwrite = TRUE)
@@ -1766,6 +1578,8 @@ server <- function(input, output, session) {
           selected_startDate = selected$startDate,
           selected_endDate = selected$endDate,
           plotly_object = plotly_plot(),
+          plotly_width = plotly_dims$width,
+          plotly_height = plotly_dims$height,
           maps_date = selected$maps_date,
           leaflet_object_p = leaflet_p_choropleth(),
           leaflet_object_alerts = leaflet_alerts_choropleth(),
