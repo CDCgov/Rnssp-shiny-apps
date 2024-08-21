@@ -1,5 +1,5 @@
 ---
-title: ""
+title: "Alerts of Alerts Shiny App Report"
 output: html_document
 params:
   selected_state: NA
@@ -39,6 +39,9 @@ params:
   .title-logo-container h1 {
     margin: 0;
     font-weight: bold;
+  }
+  #header {
+    display: none;
   }
 </style>
 
