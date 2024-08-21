@@ -1291,7 +1291,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(event_data("plotly_click", source = 'plotlyts'), {
-    selected$maps_date <- event_data("plotly_click", source = 'plotlyts')$x
+    selected$maps_date <- event_data("plotly_click", source = 'plotlyts')$x[1]
     compute_and_assign_mapping_output_reactives()
   })
   
