@@ -129,7 +129,7 @@ state_helper <- state_sf %>%
   )
 
 states <- as.character(sort(state_helper$state_name))
-states <- c(states, "All")
+states <- c("Select a state", states, "All")
 
 # Read in CCDD Categories
 
@@ -138,6 +138,8 @@ ccdd_cats <- "https://essence.syndromicsurveillance.org/nssp_essence/api/datasou
   pluck("values") %>%
   pull("value") %>%
   try(silent = TRUE)
+
+ccdd_cats <- c("Select a CCDD Category", ccdd_cats)
 
 if (any(class(ccdd_cats) == "try-error")) {
   cli::cli_abort("App failed to establish connection with ESSENCE server!
@@ -221,7 +223,6 @@ alert_switch_ <- function(df, t = date, y = count, B = 28,
       arrange(!!enquo(t)) %>%
       mutate(detector = ifelse(is.na(test_statistic), NA, detector))
   }
-  
   return(combined_out)
 }
 
@@ -653,13 +654,13 @@ ui <- tagList(
     theme = shinytheme("cosmo"),
     id = "nav",
     tabPanel(
-      "Selectable Options",
+      "Application",
       sidebarLayout(
         sidebarPanel(width=3,
                      helpPopup(
                        id = "", word="App Summary", title = "App Summary",
                        content = paste0(
-                         "This app tests for and visualizes both temporal and spatial alerts for regions with a user-selected State, for a user-selected CC & DD Category, and over a user-defined time period. Temporal alerts are tested for using 3 statewide ",
+                         "This app tests for and visualizes both temporal and spatial alerts for regions with a user-selected State, for a user-selected CCDD Category, and over a user-defined time period. Temporal alerts are tested for using 3 statewide ",
                          "diagnostics of syndrome severity. The 3 state-wide temporal diagnostics are: 1) ",
                          "total statewide percent of ED visits, 2) number of alerting ",
                          "counties/regions, and 3) the number of counties/regions ",
@@ -673,9 +674,8 @@ ui <- tagList(
                        icon_name = "question-circle",
                        icon_style = "color:blue;font-size:15px"
                      ),
-                     selectInput("State", "State", states, 'Florida'),
-                     selectInput("CCDD", "CC & DD Category", ccdd_cats, 
-                                 ccdd_cats[which(grepl("COVID-Specific", ccdd_cats))]),
+                     selectInput("State", "State", states, 'Select a state'),
+                     selectInput("CCDD", "CCDD Category", ccdd_cats, 'Select a CCDD Category'),
                      fluidRow(
                        column(
                          6,
@@ -838,6 +838,9 @@ ui <- tagList(
           )
         )
       )
+    ),
+    tabPanel("Documentation",
+             includeMarkdown("AoA_docs.md")
     )
   )
 )
@@ -909,7 +912,14 @@ server <- function(input, output, session) {
     
     withProgress(message="Loading and processing data:", value=0, {
       incProgress(0.25, detail = "Loading data...")
-      df <- myProfile$get_api_data(url) %>%
+      df <- myProfile$get_api_data(url)
+      
+      # TODO: figure out how to restart app when df is empty
+      if (length(df$timeSeriesData) == 0) {
+        return(NULL)
+      }
+      
+      df = df %>%
         pluck("timeSeriesData") %>%
         clean_names() %>%
         mutate(
@@ -953,9 +963,9 @@ server <- function(input, output, session) {
       
       #-----Compute each of total % CCDD alerts, alerts of alerts, and increasing CCDD percent alerts-----
       
-      # Compute alerts over state-wide CCDD % df
+      # Compute alerts over state-wide CCDD Category % df
       
-      incProgress(0.25, detail = "Testing CC & DD % for Alerts...")
+      incProgress(0.25, detail = "Testing CCDD Category % for Alerts...")
       df_switch_percent <- df %>% 
         group_by(date) %>%
         summarise(total_CCDD = sum(data_count),
@@ -965,7 +975,7 @@ server <- function(input, output, session) {
         { 
           nan_dates <- .$date[is.nan(.$percent)]
           if(length(nan_dates) > 0) { 
-            warning(paste("0 statewide visits reported for dates:", paste(nan_dates, collapse = ", "), ". CCDD % treated as 0."))
+            warning(paste("0 statewide visits reported for dates:", paste(nan_dates, collapse = ", "), ". CCDD Category % treated as 0."))
           } 
           mutate(., percent = ifelse(is.nan(percent), 0, percent))
         } %>%
@@ -995,8 +1005,6 @@ server <- function(input, output, session) {
       # Compute trend classification (i.e., increasing, decreasing, stable) alerts of alerts df
       
       incProgress(0.25, detail = "Estimating county trends and testing for increase (this may take a moment)...")
-      
-      #future::plan(multicore, workers = 5)
       
       ed_county_waves <- df %>%
         nest(data = -fips) %>%
@@ -1111,7 +1119,8 @@ server <- function(input, output, session) {
           start_date = min(date)
         ) %>%
         ungroup() %>%
-        mutate(trajectory = factor(trajectory, levels = c("Increasing", "Stable", "Decreasing", "Sparse")))
+        mutate(trajectory = factor(trajectory, levels = c("Increasing", "Stable", "Decreasing", "Sparse"))) %>%
+        mutate(inc_factor = ifelse(trajectory == 'Increasing', 1, 0))
       
       ed_increasing_status <- ed_county_waves %>%
         group_by(date) %>%
@@ -1258,18 +1267,17 @@ server <- function(input, output, session) {
           date,
           n_increasing,
           fitted,
+          trajectory,
           alert_trend
         )
+      
+      df_all = df_switch_alert_count %>% 
+        left_join(., df_switch_percent, by = 'date') %>%
+        left_join(., ed_anomalies_trend, by = 'date') %>%
+        tail(., -13)
+      
+      return(list(df_all, ed_county_waves))
     })
-    
-    #---------------------------------------------------------------------------------------
-    
-    df_all = df_switch_alert_count %>% 
-      left_join(., df_switch_percent, by = 'date') %>%
-      left_join(., ed_anomalies_trend, by = 'date') %>%
-      tail(., -13)
-    
-    return(list(df_all, ed_county_waves))
   }
   
   # Reactive function to store the binary empty df status
@@ -1280,6 +1288,15 @@ server <- function(input, output, session) {
   observe({
     disable <- master_empty()
     shinyjs::toggleState("report", !disable)
+  })
+  
+  inputs_invalid <- reactive({
+    input$State == 'Select a state' || input$CCDD == 'Select a CCDD Category'
+  })
+  
+  observe({
+    disable <- inputs_invalid()
+    shinyjs::toggleState("go", !disable)
   })
   
   compute_and_assign_mapping_output_reactives <- reactive({
@@ -1313,6 +1330,7 @@ server <- function(input, output, session) {
     
     # get non-null rows for analysis
     df_sf_non_null = selected_state$df_sf[!is.na(selected_state$df_sf$county),]
+    assign('df_sf_non_null', df_sf_non_null, envir=.GlobalEnv)
     
     if (nrow(df_sf_non_null) > 0) {
       # Compute local moran df
@@ -1405,7 +1423,7 @@ server <- function(input, output, session) {
                               "<br>Date:</b>", date,
                               "<br>%:</b>", format(percent, big.mark = ",")
                             ),
-                            name = "% CC & DD", legendgroup="1st")
+                            name = "% CCDD", legendgroup="1st")
     
     alert_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~count, type = 'scatter', mode = 'lines+markers',
                           marker = list(color = ~alert_alert, size=25/log(dim(Reactive_dfs$df_1)[1])),
@@ -1428,7 +1446,7 @@ server <- function(input, output, session) {
                 name = "GAM-estimated trend", legendgroup="3rd"
       ) %>%
       add_trace(y = ~n_increasing, type = 'scatter', mode = 'markers',
-                marker = list(color = ~alert_trend, size = 25/log(dim(Reactive_dfs$df_1)[1]), opacity = 0.5),
+                marker = list(color = 'grey', size = 25/log(dim(Reactive_dfs$df_1)[1]), opacity = 0.5),
                 hoverinfo = "text",
                 text = ~ paste(
                   "<br>Date:</b>", date,
@@ -1436,8 +1454,48 @@ server <- function(input, output, session) {
                 ),
                 name = "Count of Regions with Increasing Trend", legendgroup="3rd")
     
+    color_mapping <- setNames(c(1, 2, 3, 4), c("red", "yellow", "blue", "lightgray"))
+    Reactive_dfs$df_1$alert_numeric <- color_mapping[Reactive_dfs$df_1$alert_trend]
+    
+    # Create a matrix for hover text, matching the z matrix (1 row)
+    hover_text_matrix <- matrix(
+      paste("Date:", Reactive_dfs$df_1$date, "<br>Status:", Reactive_dfs$df_1$trajectory),
+      nrow = 1
+    )
+    
+    # Create a one-row heatmap
+    trend_heatmap <- plot_ly(
+      data = Reactive_dfs$df_1,
+      source='plotlyts',
+      x = ~date, 
+      z = matrix(Reactive_dfs$df_1$alert_numeric, nrow = 1),
+      type = "heatmap",
+      text = hover_text_matrix,
+      hoverinfo = "text",
+      xgap = 0.05, 
+      ygap = 0.5,
+      showscale = FALSE,
+      colorscale = list(
+        list(0, "red"),
+        list(0.33, "yellow"),
+        list(0.66, "blue"),
+        list(1.0, "lightgray")
+      ),
+      zmin = 1,
+      zmax = 4
+    ) %>%
+      layout(
+        plot_bgcolor = "black", 
+        xaxis = list(title = "Date", tickfont = list(size = 10)), 
+        yaxis = list(title = "", showticklabels = FALSE, ticks = ""), 
+        margin = list(r = 50, b = 50, l = 50, pad = 4), 
+        hovermode = "x"
+      ) %>%
+      hide_colorbar()
+    
     # subplots object
-    plt <- subplot(percent_plot, alert_plot, trending_plot, nrows = 3, shareX = TRUE) %>%
+    plt <- subplot(percent_plot, alert_plot, trending_plot, trend_heatmap, nrows = 4, 
+                   which_layout = 1, shareX = TRUE, heights = c(0.32, 0.32, 0.32, 0.04)) %>%
       layout(
         title = list(text = paste0(selected$state,': ', selected$CCDD), x = 0.4),
         hovermode = "x unified",
@@ -1482,7 +1540,12 @@ server <- function(input, output, session) {
           showline = TRUE,
           showgrid = TRUE,
           rangemode = "tozero",
-          ticks = "outside"
+          ticks = "outside"#,
+          #domain = c(0.04, 0.36)
+        ),
+        yaxis4 = list(
+          domain = c(0.0, 0.04),  # Set the heatmap to start right below the scatter plot
+          showticklabels = FALSE
         ),
         shapes = list(
           type = "line",
@@ -1494,7 +1557,7 @@ server <- function(input, output, session) {
           line = list(color = "black", dash='dash', width = 2)
         ), 
         annotations = annotations,
-        legend = list(tracegroupgap = 93)
+        legend = list(tracegroupgap = 91.5)
       ) %>% 
       event_register(.,'plotly_click')
     
@@ -1534,9 +1597,9 @@ server <- function(input, output, session) {
       addPolylines(
         data = selected_state$state_sf,
         opacity = 1,
-        fillOpacity = 0,
+        fillOpacity = 0.5,
         color = "black", 
-        weight = 1.2
+        weight = 2.0
       ) %>%
       addPolygons(
         data = selected_state$df_sf,
@@ -1546,8 +1609,8 @@ server <- function(input, output, session) {
         color = "black",
         fillColor = ~pal_p(p),
         weight = 1.0,
-        opacity = 0.2,
-        fillOpacity = 0.5,
+        opacity = 1.0,
+        fillOpacity = 0.75,
         highlight = highlightOptions(
           weight = 1,
           color = "black",
@@ -1565,6 +1628,12 @@ server <- function(input, output, session) {
         ),
         group = 'counties'
       ) %>%
+      addLegend(
+        position = "bottomright",
+        colors = "black",  # Custom color for NA values
+        labels = htmltools::HTML('<span style="font-size:12px;">No data</span>'),
+        opacity = 0.75
+      ) %>%
       addLegendNumeric(
         orientation = 'horizontal',
         height = 20,
@@ -1573,8 +1642,8 @@ server <- function(input, output, session) {
         position = "bottomright",
         title = "P-value",
         pal = pal_p,
-        values = seq(from = 0, to = 1, length.out = 100), #df_sf$p,
-        fillOpacity = 0.5
+        values = seq(from = 0, to = 1, length.out = 100),
+        fillOpacity = 0.75
       )
   })
   
@@ -1591,9 +1660,9 @@ server <- function(input, output, session) {
       lapply(htmltools::HTML)
     
     pal_alerts <- colorFactor(
-      palette = c('blue','yellow','red'), 
-      levels = c('None', 'Warning', 'Alert'),
-      na.color = "black")
+      palette = c('blue','yellow','red', 'black'), 
+      levels = c('None', 'Warning', 'Alert', 'No data available'))#,
+      #na.color = "black")
     
     alert_leaf <- leaflet() %>%
       leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
@@ -1602,9 +1671,9 @@ server <- function(input, output, session) {
       addPolylines(
         data = selected_state$state_sf,
         opacity = 1,
-        fillOpacity = 0,
+        fillOpacity = 0.5,
         color = "black", 
-        weight = 1.2
+        weight = 2.0
       ) %>%
       addPolygons(
         data = selected_state$df_sf,
@@ -1612,14 +1681,14 @@ server <- function(input, output, session) {
         stroke = TRUE,
         smoothFactor = 0.5,
         color = "black",
-        fillColor = ~pal_alerts(alert_percent),
+        fillColor = ~pal_alerts(ifelse(is.na(alert_percent),'No data available',as.character(alert_percent))),
         weight = 1.0,
-        opacity = 0.2,
-        fillOpacity = 0.5,
+        opacity = 1.0,
+        fillOpacity = 0.75,
         highlight = highlightOptions(
           weight = 1,
           color = "black",
-          fillOpacity = 0.7,
+          fillOpacity = 1.0,
           opacity = 1.0
         ),
         label = labels_alerts,
@@ -1639,8 +1708,9 @@ server <- function(input, output, session) {
         title = "Alerts",
         labelStyle = 'font-size: 12px;',
         pal = pal_alerts,
-        values = selected_state$df_sf$alert_percent,
-        fillOpacity = 0.5
+        values = factor(c('None', 'Warning', 'Alert', 'No data available'), levels=c('None', 'Warning', 'Alert', 'No data available')),
+        opacity = 1,
+        fillOpacity = 0.75
       )
   })
   
@@ -1654,9 +1724,8 @@ server <- function(input, output, session) {
       lapply(htmltools::HTML)
     
     pal_inc <- colorFactor(
-      palette = c('blue','yellow','red','lightgray'),
-      levels = c('Decreasing', 'Stable', 'Increasing', 'Sparse'),
-      na.color = "black")
+      palette = c('blue','yellow','red','lightgray', 'black'),
+      levels = c('Decreasing', 'Stable', 'Increasing', 'Sparse', 'No data available'))
     
     inc_leaf <-
       leaflet() %>%
@@ -1666,9 +1735,9 @@ server <- function(input, output, session) {
       addPolylines(
         data = selected_state$state_sf,
         opacity = 1,
-        fillOpacity = 0,
+        fillOpacity = 0.5,
         color = "black", 
-        weight = 1.2
+        weight = 2.0
       ) %>%
       addPolygons(
         data = selected_state$df_sf,
@@ -1676,10 +1745,10 @@ server <- function(input, output, session) {
         stroke = TRUE,
         smoothFactor = 0.5,
         color = "black",
-        fillColor = ~pal_inc(trajectory),
+        fillColor = ~pal_inc(ifelse(is.na(trajectory),'No data available',as.character(trajectory))),
         weight = 1.0,
-        opacity = 0.2,
-        fillOpacity = 0.5,
+        opacity = 1.0,
+        fillOpacity = 0.75,
         highlight = highlightOptions(
           weight = 1,
           color = "black",
@@ -1703,8 +1772,10 @@ server <- function(input, output, session) {
         title = "Increasing",
         labelStyle = 'font-size: 12px;',
         pal = pal_inc,
-        values = selected_state$df_sf$trajectory,
-        fillOpacity = 0.5
+        values = factor(c('Decreasing', 'Stable', 'Increasing', 'Sparse', 'No data available'), 
+                        levels = c('Decreasing', 'Stable', 'Increasing', 'Sparse', 'No data available')),
+        fillOpacity = 0.75,
+        opacity = 1
       )
   })
   
@@ -1739,6 +1810,22 @@ server <- function(input, output, session) {
   observeEvent(input$go, {
     
     dfs <- get_and_mutate_dfs(input)
+    if (is.null(dfs)) {
+      showModal(modalDialog(
+        title = "No Data",
+        HTML("There is no data available for the current selections.<br>
+             Please make another selection."),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+      
+      # Trigger reload when the modal is closed by the user
+      observeEvent(input$shiny.modal.close, {
+        session$reload()  # Perform a hard reset when modal is closed
+      })
+      
+      return()  # Ensure no further processing occurs
+    }
     
     # Update the reactive values
     Reactive_dfs$df_1 <- dfs[[1]]
