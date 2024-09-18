@@ -1,5 +1,5 @@
 ---
-title: "Alerts of Alerts Shiny App Report"
+title: ""
 output: html_document
 params:
   selected_state: NA
@@ -39,9 +39,6 @@ params:
   .title-logo-container h1 {
     margin: 0;
     font-weight: bold;
-  }
-  #header {
-    display: none;
   }
 </style>
 
@@ -173,7 +170,9 @@ The second two diagnostics have been coined `Alerts of Alerts`. Data associated 
 
 ```{r plotlyout, fig.cap="**Alerts of alerts time series diagnostics** (top panel) total statewide percent of ED visits, (middle panel) number of alerting counties/regions, (bottom panel) the number of counties/regions estimated to have increasing case counts. The top and middle panels use the [Rnssp Switch (Adaptive Regression/EWMA)](https://cdcgov.github.io/Rnssp/reference/alert_switch.html) alert detection algorithm to test for Alerts. The bottom panel uses an estimated slope threshold to signal Alerts. The fixed, vertical dashed line (black) indicates the date for which data are plotted as a family of choropleth maps below and on which attendant spatial auto-correlation test are run.", echo=FALSE, message=FALSE, out.width='100%'}
 params$inc_progress(msg = "Adding Time Series Diagnostics...", amnt = 0.25)
-params$plotly_object
+plotly_modified <- params$plotly_object %>%
+  layout(height = params$plotly_height, width = params$plotly_width)
+plotly_modified
 ```
 
 <br>
