@@ -1,23 +1,6 @@
 ---
-title: ""
+title: "Alerts of Alerts Shiny App Report"
 output: html_document
-params:
-  selected_state: NA
-  selected_ccdd: NA
-  selected_startDate: NA 
-  selected_endDate: NA
-  plotly_object: NA
-  maps_date: NA
-  leaflet_object_p: NA
-  leaflet_object_alerts: NA
-  leaflet_object_increasing: NA
-  globalMoran: NA
-  joincount_alert: NA
-  joincount_warningoralert: NA
-  joincount_inc: NA
-  inc_progress: NA
-  plotly_width: NA
-  plotly_height: NA
 ---
 
 <style>
@@ -39,6 +22,9 @@ params:
   .title-logo-container h1 {
     margin: 0;
     font-weight: bold;
+  }
+  #header {
+    display: none;
   }
 </style>
 
@@ -135,11 +121,11 @@ caption {
 ```
 
 ```{r user_inputs, echo=FALSE}
-params$inc_progress(msg = "Generating parameters table...", amnt = 0.25)
+inc_progress(msg = "Generating parameters table...", amnt = 0.25)
 # Create a data frame
 data <- data.frame(
   Parameters = c("State", "CC & DD Category", "Start Date", "End Date", "Maps Date"),
-  Values = c(params$selected_state, params$selected_ccdd, format(as.Date(params$selected_startDate), "%B %d, %Y"), format(as.Date(params$selected_endDate), "%B %d, %Y"), format(as.Date(params$maps_date), "%B %d, %Y"))
+  Values = c(selected_state, selected_ccdd, format(as.Date(selected_startDate), "%B %d, %Y"), format(as.Date(selected_endDate), "%B %d, %Y"), format(as.Date(maps_date), "%B %d, %Y"))
 )
 
 kable(data, format = "html", table.attr = 'class="term-table"') %>%
@@ -169,16 +155,16 @@ The second two diagnostics have been coined `Alerts of Alerts`. Data associated 
 <br>
 
 ```{r plotlyout, fig.cap="**Alerts of alerts time series diagnostics** (top panel) total statewide percent of ED visits, (middle panel) number of alerting counties/regions, (bottom panel) the number of counties/regions estimated to have increasing case counts. The top and middle panels use the [Rnssp Switch (Adaptive Regression/EWMA)](https://cdcgov.github.io/Rnssp/reference/alert_switch.html) alert detection algorithm to test for Alerts. The bottom panel uses an estimated slope threshold to signal Alerts. The fixed, vertical dashed line (black) indicates the date for which data are plotted as a family of choropleth maps below and on which attendant spatial auto-correlation test are run.", echo=FALSE, message=FALSE, out.width='100%'}
-params$inc_progress(msg = "Adding Time Series Diagnostics...", amnt = 0.25)
-plotly_modified <- params$plotly_object %>%
-  layout(height = params$plotly_height, width = params$plotly_width)
+inc_progress(msg = "Adding Time Series Diagnostics...", amnt = 0.25)
+plotly_modified <- widgets()$plotly_object() %>%
+  layout(height = plotly_height, width = plotly_width)
 plotly_modified
 ```
 
 <br>
 <br>
 
-## Spatial diagnostics for `r format(as.Date(params$maps_date), "%B %d, %Y")`
+## Spatial diagnostics for `r format(as.Date(maps_date), "%B %d, %Y")`
 
 <style>
   .modified-text {
@@ -189,7 +175,7 @@ plotly_modified
 </style>
 
 <div class="modified-text">
-  <strong>a. </strong>Spatial distribution of p-values &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <strong>b. </strong>Spatial distribution of Alerts &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <strong>c. </strong>Spatial Distribution of Smoothed Slopes
+  <strong>&nbsp;a. </strong>Spatial distribution of p-values &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <strong>b. </strong>Spatial distribution of Alerts &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <strong>c. </strong>Spatial Distribution of Smoothed Slopes
 </div>
 
 <style>
@@ -210,17 +196,17 @@ plotly_modified
 </style>
 
 ```{r leafletout, echo=FALSE, message=FALSE}
-params$inc_progress(msg = "Adding Choropleth Maps...", amnt = 0.25)
-A <- params$leaflet_object_p
-B <- params$leaflet_object_alerts
-C <- params$leaflet_object_increasing
+inc_progress(msg = "Adding Choropleth Maps...", amnt = 0.25)
+A <- widgets()$leaflet_object_p()
+B <- widgets()$leaflet_object_alerts()
+C <- widgets()$leaflet_object_increasing()
 
 div(class = 'sync-container-wrapper',
   div(class = 'sync-container',
     sync(tagList(A, B, C), ncol=3)
   )
 )
-params$inc_progress(msg = "Completing render...", amnt = 0.25)
+inc_progress(msg = "Completing render...", amnt = 0.25)
 ```
 
 <br>
@@ -228,9 +214,9 @@ params$inc_progress(msg = "Completing render...", amnt = 0.25)
 
 ### Alerts of alerts spatial autocorrelation diagnostics
 
-  a. This map shows the spatial distribution of p-values corresponding to each respective region's test for temporal alerts. This spatial distribution of p-values is tested for spatial auto-correlation (i.e., clustering) using Global Moran's $I$ ($p=$ `r params$globalMoran`). Moran's $I$ operates on continuous data; small p-values for the Global Moran's $I$ test indicate that both regions with low temporal p-values and regions with high temporal p-values are spatially clustered, respectively.
-  b. This map shows the spatial distribution of Alerts computed via the <a href="https://cdcgov.github.io/Rnssp/reference/alert_switch.html" target="_blank"> Rnssp Switch (Adaptive Regression/EWMA)</a> algorithm. This spatial distribution of warnings and alerts is tested for spatial auto-correlation using <a href="https://www.rdocumentation.org/packages/spdep/versions/1.2-8/topics/joincount.test" target="_blank"> Join Count</a> statistical tests. One test tests whether Alerts (red) are spatially clustered ($p=$ `r params$joincount_alert`), while a second test tests whether both Alerts and Warnings (red and yellow), treated as a single grouping, are spatially clustered ($p=$ `r params$joincount_warningoralert`).
-  c. This map shows the spatial distribution of Alerts computed via slope thresholds. This configuration of slope-threshold-based Alerts is tested for spatial auto-correlation using a Join Count test ($p=$ `r params$joincount_inc`).
+  a. This map shows the spatial distribution of p-values corresponding to each respective region's test for temporal alerts. This spatial distribution of p-values is tested for spatial auto-correlation (i.e., clustering) using Global Moran's $I$ ($p=$ `r globalMoran`). Moran's $I$ operates on continuous data; small p-values for the Global Moran's $I$ test indicate that both regions with low temporal p-values and regions with high temporal p-values are spatially clustered, respectively.
+  b. This map shows the spatial distribution of Alerts computed via the <a href="https://cdcgov.github.io/Rnssp/reference/alert_switch.html" target="_blank"> Rnssp Switch (Adaptive Regression/EWMA)</a> algorithm. This spatial distribution of warnings and alerts is tested for spatial auto-correlation using <a href="https://www.rdocumentation.org/packages/spdep/versions/1.2-8/topics/joincount.test" target="_blank"> Join Count</a> statistical tests. One test tests whether Alerts (red) are spatially clustered ($p=$ `r joincount_alert`), while a second test tests whether both Alerts and Warnings (red and yellow), treated as a single grouping, are spatially clustered ($p=$ `r joincount_warningoralert`).
+  c. This map shows the spatial distribution of Alerts computed via slope thresholds. This configuration of slope-threshold-based Alerts is tested for spatial auto-correlation using a Join Count test ($p=$ `r joincount_inc`).
 
 
 <br>
