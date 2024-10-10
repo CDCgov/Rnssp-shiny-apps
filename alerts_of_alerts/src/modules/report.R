@@ -78,7 +78,7 @@ reportModule <- function(input, output, session, sideBarInput, widgets) {
           tempReport <- file.path(temp_dir, "AoA_report.Rmd")
           file.copy("src/report/AoA_report.Rmd", tempReport, overwrite = TRUE)
           logo_file <- file.path(temp_dir, "logo.png")
-          file.copy("src/docs/logo.png", logo_file, overwrite = TRUE)
+          file.copy("src/report/logo.png", logo_file, overwrite = TRUE)
           suppressMessages(
             suppressWarnings(
               rmarkdown::render(tempReport, output_file = file, envir = report_envir())
