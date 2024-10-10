@@ -129,7 +129,7 @@ state_helper <- state_sf %>%
   )
 
 states <- as.character(sort(state_helper$state_name))
-states <- c(states, "All")
+states <- c("Select a state", states, "All")
 
 # Read in CCDD Categories
 
@@ -138,6 +138,8 @@ ccdd_cats <- "https://essence.syndromicsurveillance.org/nssp_essence/api/datasou
   pluck("values") %>%
   pull("value") %>%
   try(silent = TRUE)
+
+ccdd_cats <- c("Select a CCDD Category", ccdd_cats)
 
 if (any(class(ccdd_cats) == "try-error")) {
   cli::cli_abort("App failed to establish connection with ESSENCE server!
@@ -151,6 +153,480 @@ StartDate_0 <- Sys.Date() %m-%
 
 EndDate_0 <- Sys.Date() %m-%
   days(1)
+
+#-------------------------------------------------------------------------------
+# -------------------Rnssp replacement code for alert_switch()------------------
+# Plan to pull this out when Rnssp and ESSENCE versions are synced
+
+# Alert Switch (identical to Rnssp 0.3.0 except for "alert_ewma_(...)")
+alert_switch_ <- function(df, t = date, y = count, B = 28,
+                          g = 2, w1 = 0.4, w2 = 0.9) {
+  
+  # Check baseline length argument
+  if (B < 7) {
+    cli::cli_abort("Error in {.fn alert_switch}: baseline length argument {.var B} must be greater than or equal to 7")
+  }
+  
+  if (B %% 7 != 0) {
+    cli::cli_abort("Error in {.fn alert_switch}: baseline length argument {.var B} must be a multiple of 7")
+  }
+  
+  # Check guardband length argument
+  if (g < 0) {
+    cli::cli_abort("Error in {.fn alert_switch}: guardband length argument {.var g} cannot be negative")
+  }
+  
+  # Check for sufficient baseline data
+  if (nrow(df) < B + g + 1) {
+    cli::cli_abort("Error in {.fn alert_switch}: not enough historical data")
+  }
+  
+  # Check for grouping variables
+  grouped_df <- is.grouped_df(df)
+  
+  t <- enquo(t)
+  y <- enquo(y)
+  
+  base_tbl <- df %>%
+    mutate({{ t }} := as.Date(!!t))
+  
+  alert_tbl_reg <- base_tbl %>%
+    alert_regression(t = !!t, y = !!y, B = B, g = g) %>%
+    select(-sigma) %>%
+    mutate(detector = "Adaptive Multiple Regression")
+  
+  alert_tbl_ewma <- base_tbl %>%
+    alert_ewma(t = !!t, y = !!y, B = B, g = g, w1 = w1, w2 = w2) %>%
+    mutate(detector = "EWMA")
+  
+  join_cols <- setdiff(names(alert_tbl_reg), c("baseline_expected", "test_statistic", "p.value", "adjusted_r_squared", "alert", "detector"))
+  
+  replace_dates <- alert_tbl_reg %>%
+    filter(is.na(adjusted_r_squared) | adjusted_r_squared < 0.60) %>%
+    select(-c(baseline_expected, test_statistic, p.value, adjusted_r_squared, alert, detector)) %>%
+    inner_join(alert_tbl_ewma, by = join_cols)
+  
+  if (grouped_df) {
+    groups <- group_vars(base_tbl)
+    
+    combined_out <- alert_tbl_reg %>%
+      filter(adjusted_r_squared >= 0.60) %>%
+      select(-adjusted_r_squared) %>%
+      bind_rows(replace_dates) %>%
+      arrange(!!!syms(groups), !!enquo(t)) %>%
+      mutate(detector = ifelse(is.na(test_statistic), NA, detector))
+  } else {
+    combined_out <- alert_tbl_reg %>%
+      filter(adjusted_r_squared >= 0.60) %>%
+      select(-adjusted_r_squared) %>%
+      bind_rows(replace_dates) %>%
+      arrange(!!enquo(t)) %>%
+      mutate(detector = ifelse(is.na(test_statistic), NA, detector))
+  }
+  return(combined_out)
+}
+
+# adaptive_regression() from Rnssp
+adaptive_regression <- function(df, t, y, B, g) {
+  t <- enquo(t)
+  y <- enquo(y)
+  
+  N <- nrow(df)
+  
+  # Populate algorithm parameters
+  min_df <- 3
+  min_baseline <- 11
+  max_baseline <- B
+  df_range <- 1:(B - min_df)
+  
+  ucl_alert <- round(qt(1 - 0.01, df = df_range), 5)
+  ucl_warning <- round(qt(1 - 0.05, df = df_range), 5)
+  
+  # Bound standard error of regression
+  min_sigma <- 1.01 / ucl_warning
+  
+  # Initialize result vectors
+  test_stat <- rep(NA, N)
+  p_val <- rep(NA, N)
+  expected <- rep(NA, N)
+  sigma <- rep(NA, N)
+  r_sqrd_adj <- rep(NA, N)
+  
+  # Vector of dates
+  dates <- df %>%
+    pull(!!t)
+  
+  # Vector of observations
+  y_obs <- df %>%
+    pull(!!y)
+  
+  # Initialize baseline indices
+  ndx_baseline <- 1:(min_baseline - 1)
+  
+  # Adaptive multiple regression loop
+  for (i in (min_baseline + g + 1):N) {
+    
+    # Pad baseline until full baseline is obtained
+    if (last(ndx_baseline) < max_baseline) {
+      ndx_baseline <- c(0, ndx_baseline)
+    }
+    
+    # Advance baseline for current iteration
+    ndx_baseline <- ndx_baseline + 1
+    
+    # Indices for baseline and test date
+    if (last(ndx_baseline) < max_baseline) {
+      ndx_time <- 1:last(ndx_baseline)
+      ndx_test <- last(ndx_baseline) + g + 1
+    } else {
+      ndx_time <- 1:B
+      ndx_test <- (B + g + 1)
+    }
+    
+    # Set number of degrees of freedom
+    n_df <- length(ndx_baseline) - 8
+    
+    # Baseline and current data
+    baseline_data <- df[ndx_baseline, ]
+    
+    B_length <- length(ndx_baseline)
+    
+    # Baseline observed values
+    baseline_obs <- baseline_data %>%
+      pull(!!y)
+    
+    # Form regression matrix
+    X <- as.matrix(
+      cbind(ndx_time,
+            baseline_data[, c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat")])
+    )
+    
+    # Fit regression model with lm.fit() for efficiency
+    lm_fit <- lm.fit(x = cbind(1, X), y = baseline_obs)
+    
+    # Extract model components
+    beta <- lm_fit$coefficients
+    res <- lm_fit$residuals
+    mse <- (1 / (n_df)) * sum(res^2)
+    
+    # Compute adjusted R-squared value
+    fit_vals <- lm_fit$fitted.values
+    mss <- sum((fit_vals - mean(fit_vals))^2)
+    rss <- sum(res^2)
+    r2 <- (mss / (rss + mss))
+    r2_adj <- 1 - (1 - r2) * ((nrow(X) - 1) / lm_fit$df.residual)
+    r_sqrd_adj[i] <- if_else(is.nan(r2_adj), 0, r2_adj)
+    
+    # Calculate bounded standard error of regression with derived formula for efficiency
+    sigma[i] <- max(
+      sqrt(mse) * sqrt(((B_length + 7) * (B_length - 4)) /
+                         (B_length * (B_length - 7))), min_sigma[n_df]
+    )
+    
+    # Day of week for test date
+    dow_test <- as.numeric(format(dates[i], "%u"))
+    
+    # Calculate forecast on test date
+    expected[i] <- if (dow_test < 7) {
+      max(0, beta[[1]] + ndx_test * beta[[2]] + beta[[dow_test + 2]])
+    } else {
+      max(0, beta[[1]] + ndx_test * beta[[2]])
+    }
+    
+    # Calculate test statistic
+    test_stat[i] <- (y_obs[i] - expected[i]) / sigma[i]
+    
+    # Calculate p-value
+    p_val[i] <- 1 - pt(test_stat[i], df = n_df)
+  }
+  
+  tibble::tibble(
+    baseline_expected = expected,
+    test_statistic = test_stat,
+    p.value = p_val,
+    sigma = sigma,
+    adjusted_r_squared = r_sqrd_adj
+  )
+}
+
+# alert_regression() from Rnssp
+alert_regression <- function(df, t = date, y = count, B = 28, g = 2) {
+  
+  # Check baseline length argument
+  if (B < 7) {
+    cli::cli_abort("Error in {.fn alert_regression}: baseline length argument
+                   {.var B} must be greater than or equal to 7")
+  }
+  
+  if (B %% 7 != 0) {
+    cli::cli_abort("Error in {.fn alert_regression}: baseline length argument
+                   {.var B} must be a multiple of 7")
+  }
+  
+  # Check guardband length argument
+  if (g < 0) {
+    cli::cli_abort("Error in {.fn alert_regression}: guardband length argument
+                   {.var g} cannot be negative")
+  }
+  
+  # Check for sufficient baseline data
+  if (nrow(df) < B + g + 1) {
+    cli::cli_abort("Error in {.fn alert_regression}: not enough historical data")
+  }
+  
+  # Check for grouping variables
+  grouped_df <- is.grouped_df(df)
+  
+  t <- enquo(t)
+  y <- enquo(y)
+  
+  base_tbl <- df %>%
+    mutate(
+      {{ t }} := as.Date(!!t),
+      dow = weekdays(!!t, abbreviate = TRUE),
+      dummy = 1
+    ) %>%
+    pivot_wider(names_from = dow, values_from = dummy, values_fill = 0)
+  
+  if (grouped_df) {
+    groups <- group_vars(base_tbl)
+    
+    base_tbl %>%
+      nest(data_split = -all_of(groups)) %>%
+      mutate(anomalies = map(
+        .x = data_split,
+        .f = adaptive_regression, t = !!t, y = !!y, B = B, g = g)
+      ) %>%
+      unnest(c(data_split, anomalies)) %>%
+      mutate(
+        alert = case_when(
+          p.value < 0.01 ~ "red",
+          p.value >= 0.01 & p.value < 0.05 ~ "yellow",
+          p.value >= 0.05 ~ "blue",
+          TRUE ~ "grey"
+        )
+      ) %>%
+      select(-c(Mon, Tue, Wed, Thu, Fri, Sat, Sun))
+  } else {
+    unique_dates <- base_tbl %>%
+      pull(!!t) %>%
+      unique()
+    
+    if (length(unique_dates) != nrow(base_tbl)) {
+      cli::cli_abort("Error in {.fn alert_regression}: Number of unique dates does
+                     not equal the number of rows. Should your dataframe be grouped?")
+    }
+    
+    base_tbl %>%
+      nest(data_split = everything()) %>%
+      mutate(anomalies = map(
+        .x = data_split,
+        .f = adaptive_regression, t = !!t, y = !!y, B = B, g = g)
+      ) %>%
+      unnest(c(data_split, anomalies)) %>%
+      mutate(
+        alert = case_when(
+          p.value < 0.01 ~ "red",
+          p.value >= 0.01 & p.value < 0.05 ~ "yellow",
+          p.value >= 0.05 ~ "blue",
+          TRUE ~ "grey"
+        )
+      ) %>%
+      select(-c(Mon, Tue, Wed, Thu, Fri, Sat, Sun))
+  }
+}
+
+# modified ewma_loop()
+
+ewma_loop <- function(df, t, y, B, g, w1, w2) {
+  t <- enquo(t)
+  y <- enquo(y)
+  
+  N <- nrow(df)
+  
+  # Populate algorithm parameters
+  min_df <- 3
+  min_baseline <- 11
+  max_baseline <- 28
+  length_baseline <- min_baseline:max_baseline
+  
+  # Vector of observations
+  y <- df %>%
+    pull(!!y)
+  if(max(y) <= 1) { y <- y / median(y[y>0]) }   # 16May2023 edit for application to proportion data
+  
+  
+  # Initialize result vectors
+  expected <- rep(NA, N)
+  z1 <- rep(NA, N)
+  z2 <- rep(NA, N)
+  sigma1 <- rep(NA, N)
+  sigma2 <- rep(NA, N)
+  test_stat1 <- rep(NA, N)
+  test_stat2 <- rep(NA, N)
+  pval1 <- rep(NA, N)
+  pval2 <- rep(NA, N)
+  
+  z <- z1
+  test_stat <- test_stat1
+  p_val <- pval1
+  
+  # Initialize EWMA values
+  z1[1] <- y[1]
+  z2[1] <- y[1]
+  
+  for (i0 in 2:(min_baseline + g)) {
+    z1[i0] <- w1 * y[i0] + (1 - w1) * z1[i0 - 1]
+    z2[i0] <- w2 * y[i0] + (1 - w2) * z2[i0 - 1]
+  }
+  
+  # Initialize baseline indices
+  ndx_baseline <- 1:(min_baseline - 1)
+  
+  # EWMA loop
+  for (i in (min_baseline + g + 1):N) {
+    
+    # Pad baseline until full baseline is obtained
+    if (last(ndx_baseline) < max_baseline) {
+      ndx_baseline <- c(0, ndx_baseline)
+    }
+    
+    # Advance baseline for current iteration
+    ndx_baseline <- ndx_baseline + 1
+    
+    # Set number of degrees of freedom
+    n_df <- length(ndx_baseline) - 1
+    
+    # Baseline and current data
+    y_baseline <- y[ndx_baseline]
+    
+    expected[i] <- mean(y_baseline)
+    sigma <- sd(y_baseline)
+    
+    sigma_correction1 <- sqrt((w1 / (2 - w1)) + (1 / length(ndx_baseline)) - 2 * (1 - w1)^(g + 1) * ((1 - (1 - w1)^length(ndx_baseline)) / length(ndx_baseline)))
+    sigma_correction2 <- sqrt((w2 / (2 - w2)) + (1 / length(ndx_baseline)) - 2 * (1 - w2)^(g + 1) * ((1 - (1 - w2)^length(ndx_baseline)) / length(ndx_baseline)))
+    
+    ucl_alert <- round(qt(1 - 0.01, df = n_df), 5)
+    ucl_warning <- round(qt(1 - 0.05, df = n_df), 5)
+    
+    min_sigma1 <- (w1 / ucl_warning) * (1 + 0.5 * (1 - w1)^2)
+    min_sigma2 <- (w2 / ucl_warning) * (1 + 0.5 * (1 - w2)^2)
+    
+    constant1 <- (0.1289 - (0.2414 - 0.1826 * (1 - w1)^4) * log(10 * 0.05)) * (w1 / ucl_warning)
+    constant2 <- (0.1289 - (0.2414 - 0.1826 * (1 - w2)^4) * log(10 * 0.05)) * (w2 / ucl_warning)
+    
+    sigma1[i] <- max(min_sigma1, sigma * sigma_correction1 + constant1)
+    sigma2[i] <- max(min_sigma2, sigma * sigma_correction2 + constant2)
+    
+    # EWMA values
+    z1[i] <- w1 * y[i] + (1 - w1) * z1[i - 1]
+    z2[i] <- w2 * y[i] + (1 - w2) * z2[i - 1]
+    
+    # Calculate test statistics
+    test_stat1[i] <- (z1[i] - expected[i]) / sigma1[i]
+    test_stat2[i] <- (z2[i] - expected[i]) / sigma2[i]
+    
+    if (abs(test_stat1[i]) > ucl_alert) {
+      z1[i] <- expected[i] + sign(test_stat1[i]) * ucl_alert * sigma1[i]
+    }
+    
+    if (abs(test_stat2[i]) > ucl_alert) {
+      z2[i] <- expected[i] + sign(test_stat2[i]) * ucl_alert * sigma2[i]
+    }
+    
+    # Compute p-values
+    pval1[i] <- 1 - pt(test_stat1[i], df = n_df)
+    pval2[i] <- 1 - pt(test_stat2[i], df = n_df)
+    
+    # Determine minimum p-value
+    if (pval1[i] < pval2[i]) {
+      p_val[i] <- pval1[i]
+      test_stat[i] <- test_stat1[i]
+      z[i] <- z1[i]
+    } else {
+      p_val[i] <- pval2[i]
+      test_stat[i] <- test_stat2[i]
+      z[i] <- z2[i]
+    }
+  }
+  
+  tibble::tibble(
+    baseline_expected = expected,
+    test_statistic = test_stat,
+    p.value = p_val
+  )
+}
+
+# modified alert_ewma()
+alert_ewma <- function(df, t = date, y = count, B = 28, g = 2, w1 = 0.4, w2 = 0.9) {
+  
+  # Check baseline length argument
+  if (B < 7) {
+    cli::cli_abort("Error in {.fn alert_ewma}: baseline length argument {.var B} must be greater than or equal to 7")
+  }
+  
+  # Check guardband length argument
+  if (g < 0) {
+    cli::cli_abort("Error in {.fn alert_ewma}: guardband length argument {.var g} cannot be negative")
+  }
+  
+  # Check for sufficient baseline data
+  if (nrow(df) < B + g + 1) {
+    cli::cli_abort("Error in {.fn alert_ewma}: not enough historical data")
+  }
+  
+  # Check for grouping variables
+  grouped_df <- is.grouped_df(df)
+  
+  t <- enquo(t)
+  y <- enquo(y)
+  
+  base_tbl <- df %>%
+    mutate({{ t }} := as.Date(!!t))
+  
+  if (grouped_df) {
+    groups <- group_vars(base_tbl)
+    
+    alert_tbl <- base_tbl %>%
+      nest(data_split = -all_of(groups)) %>%
+      mutate(anomalies = map(.x = data_split, .f = ewma_loop, t = !!t, y = !!y, B = B, g = g, w1 = w1, w2 = w2)) %>%
+      unnest(c(data_split, anomalies)) %>%
+      mutate(
+        alert = case_when(
+          p.value < 0.01 ~ "red",
+          p.value >= 0.01 & p.value < 0.05 ~ "yellow",
+          p.value >= 0.05 ~ "blue",
+          TRUE ~ "grey"
+        )
+      )
+    
+    return(alert_tbl)
+  } else {
+    unique_dates <- base_tbl %>%
+      pull(!!t) %>%
+      unique()
+    
+    if (length(unique_dates) != nrow(base_tbl)) {
+      cli::cli_abort("Error in {.fn alert_regression}: Number of unique dates does not equal the number of rows. Should your dataframe be grouped?")
+    }
+    
+    alert_tbl <- base_tbl %>%
+      nest(data_split = everything()) %>%
+      mutate(anomalies = map(.x = data_split, .f = ewma_loop, t = !!t, y = !!y, B = B, g = g, w1 = w1, w2 = w2)) %>%
+      unnest(c(data_split, anomalies)) %>%
+      mutate(
+        alert = case_when(
+          p.value < 0.01 ~ "red",
+          p.value >= 0.01 & p.value < 0.05 ~ "yellow",
+          p.value >= 0.05 ~ "blue",
+          TRUE ~ "grey"
+        )
+      )
+  }
+}
+
+#-------------------------------------------------------------------------------
+#------------------------------End Rnssp replacement code-----------------------
 
 # User interface object
 ui <- tagList(
@@ -178,13 +654,13 @@ ui <- tagList(
     theme = shinytheme("cosmo"),
     id = "nav",
     tabPanel(
-      "Selectable Options",
+      "Application",
       sidebarLayout(
         sidebarPanel(width=3,
                      helpPopup(
-                       id = "", word="App Summary", title = "",
+                       id = "", word="App Summary", title = "App Summary",
                        content = paste0(
-                         "This app tests for and visualizes both temporal and spatial alerts for regions with a user-selected State, for a user-selected CC & DD Category, and over a user-defined time period. Temporal alerts are tested for using 3 statewide ",
+                         "This app tests for and visualizes both temporal and spatial alerts for regions with a user-selected State, for a user-selected CCDD Category, and over a user-defined time period. Temporal alerts are tested for using 3 statewide ",
                          "diagnostics of syndrome severity. The 3 state-wide temporal diagnostics are: 1) ",
                          "total statewide percent of ED visits, 2) number of alerting ",
                          "counties/regions, and 3) the number of counties/regions ",
@@ -198,9 +674,8 @@ ui <- tagList(
                        icon_name = "question-circle",
                        icon_style = "color:blue;font-size:15px"
                      ),
-                     selectInput("State", "State", states, 'Florida'),
-                     selectInput("CCDD", "CC & DD Category", ccdd_cats, 
-                                 ccdd_cats[which(grepl("COVID-Specific", ccdd_cats))]),
+                     selectInput("State", "State", states, 'Select a state'),
+                     selectInput("CCDD", "CCDD Category", ccdd_cats, 'Select a CCDD Category'),
                      fluidRow(
                        column(
                          6,
@@ -363,6 +838,9 @@ ui <- tagList(
           )
         )
       )
+    ),
+    tabPanel("Documentation",
+             includeMarkdown("AoA_docs.md")
     )
   )
 )
@@ -434,7 +912,14 @@ server <- function(input, output, session) {
     
     withProgress(message="Loading and processing data:", value=0, {
       incProgress(0.25, detail = "Loading data...")
-      df <- myProfile$get_api_data(url) %>%
+      df <- myProfile$get_api_data(url)
+      
+      # TODO: figure out how to restart app when df is empty
+      if (length(df$timeSeriesData) == 0) {
+        return(NULL)
+      }
+      
+      df = df %>%
         pluck("timeSeriesData") %>%
         clean_names() %>%
         mutate(
@@ -478,9 +963,9 @@ server <- function(input, output, session) {
       
       #-----Compute each of total % CCDD alerts, alerts of alerts, and increasing CCDD percent alerts-----
       
-      # Compute alerts over state-wide CCDD % df
+      # Compute alerts over state-wide CCDD Category % df
       
-      incProgress(0.25, detail = "Testing CC & DD % for Alerts...")
+      incProgress(0.25, detail = "Testing CCDD Category % for Alerts...")
       df_switch_percent <- df %>% 
         group_by(date) %>%
         summarise(total_CCDD = sum(data_count),
@@ -490,12 +975,12 @@ server <- function(input, output, session) {
         { 
           nan_dates <- .$date[is.nan(.$percent)]
           if(length(nan_dates) > 0) { 
-            warning(paste("0 statewide visits reported for dates:", paste(nan_dates, collapse = ", "), ". CCDD % treated as 0."))
+            warning(paste("0 statewide visits reported for dates:", paste(nan_dates, collapse = ", "), ". CCDD Category % treated as 0."))
           } 
           mutate(., percent = ifelse(is.nan(percent), 0, percent))
         } %>%
         select(date, percent) %>%
-        alert_switch(., t = date, y = percent) %>%
+        alert_switch_(., t = date, y = percent) %>%
         select(
           date,
           percent,
@@ -509,7 +994,7 @@ server <- function(input, output, session) {
       df_switch_alert_count = df %>%
         group_by(date) %>%
         summarise(count = sum(alert_percent == "Alert")) %>%
-        alert_switch(., t=date, y=count) %>%
+        alert_switch_(., t=date, y=count) %>%
         select(
           date,
           count,
@@ -520,8 +1005,6 @@ server <- function(input, output, session) {
       # Compute trend classification (i.e., increasing, decreasing, stable) alerts of alerts df
       
       incProgress(0.25, detail = "Estimating county trends and testing for increase (this may take a moment)...")
-      
-      #future::plan(multicore, workers = 5)
       
       ed_county_waves <- df %>%
         nest(data = -fips) %>%
@@ -636,7 +1119,8 @@ server <- function(input, output, session) {
           start_date = min(date)
         ) %>%
         ungroup() %>%
-        mutate(trajectory = factor(trajectory, levels = c("Increasing", "Stable", "Decreasing", "Sparse")))
+        mutate(trajectory = factor(trajectory, levels = c("Increasing", "Stable", "Decreasing", "Sparse"))) %>%
+        mutate(inc_factor = ifelse(trajectory == 'Increasing', 1, 0))
       
       ed_increasing_status <- ed_county_waves %>%
         group_by(date) %>%
@@ -783,18 +1267,17 @@ server <- function(input, output, session) {
           date,
           n_increasing,
           fitted,
+          trajectory,
           alert_trend
         )
+      
+      df_all = df_switch_alert_count %>% 
+        left_join(., df_switch_percent, by = 'date') %>%
+        left_join(., ed_anomalies_trend, by = 'date') %>%
+        tail(., -13)
+      
+      return(list(df_all, ed_county_waves))
     })
-    
-    #---------------------------------------------------------------------------------------
-    
-    df_all = df_switch_alert_count %>% 
-      left_join(., df_switch_percent, by = 'date') %>%
-      left_join(., ed_anomalies_trend, by = 'date') %>%
-      tail(., -13)
-    
-    return(list(df_all, ed_county_waves))
   }
   
   # Reactive function to store the binary empty df status
@@ -805,6 +1288,15 @@ server <- function(input, output, session) {
   observe({
     disable <- master_empty()
     shinyjs::toggleState("report", !disable)
+  })
+  
+  inputs_invalid <- reactive({
+    input$State == 'Select a state' || input$CCDD == 'Select a CCDD Category'
+  })
+  
+  observe({
+    disable <- inputs_invalid()
+    shinyjs::toggleState("go", !disable)
   })
   
   compute_and_assign_mapping_output_reactives <- reactive({
@@ -838,6 +1330,7 @@ server <- function(input, output, session) {
     
     # get non-null rows for analysis
     df_sf_non_null = selected_state$df_sf[!is.na(selected_state$df_sf$county),]
+    assign('df_sf_non_null', df_sf_non_null, envir=.GlobalEnv)
     
     if (nrow(df_sf_non_null) > 0) {
       # Compute local moran df
@@ -930,7 +1423,7 @@ server <- function(input, output, session) {
                               "<br>Date:</b>", date,
                               "<br>%:</b>", format(percent, big.mark = ",")
                             ),
-                            name = "% CC & DD", legendgroup="1st")
+                            name = "% CCDD", legendgroup="1st")
     
     alert_plot <- plot_ly(data = Reactive_dfs$df_1, source='plotlyts', x = ~date, y = ~count, type = 'scatter', mode = 'lines+markers',
                           marker = list(color = ~alert_alert, size=25/log(dim(Reactive_dfs$df_1)[1])),
@@ -953,7 +1446,7 @@ server <- function(input, output, session) {
                 name = "GAM-estimated trend", legendgroup="3rd"
       ) %>%
       add_trace(y = ~n_increasing, type = 'scatter', mode = 'markers',
-                marker = list(color = ~alert_trend, size = 25/log(dim(Reactive_dfs$df_1)[1]), opacity = 0.5),
+                marker = list(color = 'grey', size = 25/log(dim(Reactive_dfs$df_1)[1]), opacity = 0.5),
                 hoverinfo = "text",
                 text = ~ paste(
                   "<br>Date:</b>", date,
@@ -961,8 +1454,48 @@ server <- function(input, output, session) {
                 ),
                 name = "Count of Regions with Increasing Trend", legendgroup="3rd")
     
+    color_mapping <- setNames(c(1, 2, 3, 4), c("red", "yellow", "blue", "lightgray"))
+    Reactive_dfs$df_1$alert_numeric <- color_mapping[Reactive_dfs$df_1$alert_trend]
+    
+    # Create a matrix for hover text, matching the z matrix (1 row)
+    hover_text_matrix <- matrix(
+      paste("Date:", Reactive_dfs$df_1$date, "<br>Status:", Reactive_dfs$df_1$trajectory),
+      nrow = 1
+    )
+    
+    # Create a one-row heatmap
+    trend_heatmap <- plot_ly(
+      data = Reactive_dfs$df_1,
+      source='plotlyts',
+      x = ~date, 
+      z = matrix(Reactive_dfs$df_1$alert_numeric, nrow = 1),
+      type = "heatmap",
+      text = hover_text_matrix,
+      hoverinfo = "text",
+      xgap = 0.05, 
+      ygap = 0.5,
+      showscale = FALSE,
+      colorscale = list(
+        list(0, "red"),
+        list(0.33, "yellow"),
+        list(0.66, "blue"),
+        list(1.0, "lightgray")
+      ),
+      zmin = 1,
+      zmax = 4
+    ) %>%
+      layout(
+        plot_bgcolor = "black", 
+        xaxis = list(title = "Date", tickfont = list(size = 10)), 
+        yaxis = list(title = "", showticklabels = FALSE, ticks = ""), 
+        margin = list(r = 50, b = 50, l = 50, pad = 4), 
+        hovermode = "x"
+      ) %>%
+      hide_colorbar()
+    
     # subplots object
-    plt <- subplot(percent_plot, alert_plot, trending_plot, nrows = 3, shareX = TRUE) %>%
+    plt <- subplot(percent_plot, alert_plot, trending_plot, trend_heatmap, nrows = 4, 
+                   which_layout = 1, shareX = TRUE, heights = c(0.32, 0.32, 0.32, 0.04)) %>%
       layout(
         title = list(text = paste0(selected$state,': ', selected$CCDD), x = 0.4),
         hovermode = "x unified",
@@ -1007,7 +1540,12 @@ server <- function(input, output, session) {
           showline = TRUE,
           showgrid = TRUE,
           rangemode = "tozero",
-          ticks = "outside"
+          ticks = "outside"#,
+          #domain = c(0.04, 0.36)
+        ),
+        yaxis4 = list(
+          domain = c(0.0, 0.04),  # Set the heatmap to start right below the scatter plot
+          showticklabels = FALSE
         ),
         shapes = list(
           type = "line",
@@ -1019,7 +1557,7 @@ server <- function(input, output, session) {
           line = list(color = "black", dash='dash', width = 2)
         ), 
         annotations = annotations,
-        legend = list(tracegroupgap = 93)
+        legend = list(tracegroupgap = 91.5)
       ) %>% 
       event_register(.,'plotly_click')
     
@@ -1059,9 +1597,9 @@ server <- function(input, output, session) {
       addPolylines(
         data = selected_state$state_sf,
         opacity = 1,
-        fillOpacity = 0,
+        fillOpacity = 0.5,
         color = "black", 
-        weight = 1.2
+        weight = 2.0
       ) %>%
       addPolygons(
         data = selected_state$df_sf,
@@ -1071,8 +1609,8 @@ server <- function(input, output, session) {
         color = "black",
         fillColor = ~pal_p(p),
         weight = 1.0,
-        opacity = 0.2,
-        fillOpacity = 0.5,
+        opacity = 1.0,
+        fillOpacity = 0.75,
         highlight = highlightOptions(
           weight = 1,
           color = "black",
@@ -1090,6 +1628,12 @@ server <- function(input, output, session) {
         ),
         group = 'counties'
       ) %>%
+      addLegend(
+        position = "bottomright",
+        colors = "black",  # Custom color for NA values
+        labels = htmltools::HTML('<span style="font-size:12px;">No data</span>'),
+        opacity = 0.75
+      ) %>%
       addLegendNumeric(
         orientation = 'horizontal',
         height = 20,
@@ -1098,8 +1642,8 @@ server <- function(input, output, session) {
         position = "bottomright",
         title = "P-value",
         pal = pal_p,
-        values = seq(from = 0, to = 1, length.out = 100), #df_sf$p,
-        fillOpacity = 0.5
+        values = seq(from = 0, to = 1, length.out = 100),
+        fillOpacity = 0.75
       )
   })
   
@@ -1116,9 +1660,9 @@ server <- function(input, output, session) {
       lapply(htmltools::HTML)
     
     pal_alerts <- colorFactor(
-      palette = c('blue','yellow','red'), 
-      levels = c('None', 'Warning', 'Alert'),
-      na.color = "black")
+      palette = c('blue','yellow','red', 'black'), 
+      levels = c('None', 'Warning', 'Alert', 'No data available'))#,
+      #na.color = "black")
     
     alert_leaf <- leaflet() %>%
       leaflet.extras::setMapWidgetStyle(list(background = "#FFFFFF")) %>%
@@ -1127,9 +1671,9 @@ server <- function(input, output, session) {
       addPolylines(
         data = selected_state$state_sf,
         opacity = 1,
-        fillOpacity = 0,
+        fillOpacity = 0.5,
         color = "black", 
-        weight = 1.2
+        weight = 2.0
       ) %>%
       addPolygons(
         data = selected_state$df_sf,
@@ -1137,14 +1681,14 @@ server <- function(input, output, session) {
         stroke = TRUE,
         smoothFactor = 0.5,
         color = "black",
-        fillColor = ~pal_alerts(alert_percent),
+        fillColor = ~pal_alerts(ifelse(is.na(alert_percent),'No data available',as.character(alert_percent))),
         weight = 1.0,
-        opacity = 0.2,
-        fillOpacity = 0.5,
+        opacity = 1.0,
+        fillOpacity = 0.75,
         highlight = highlightOptions(
           weight = 1,
           color = "black",
-          fillOpacity = 0.7,
+          fillOpacity = 1.0,
           opacity = 1.0
         ),
         label = labels_alerts,
@@ -1164,8 +1708,9 @@ server <- function(input, output, session) {
         title = "Alerts",
         labelStyle = 'font-size: 12px;',
         pal = pal_alerts,
-        values = selected_state$df_sf$alert_percent,
-        fillOpacity = 0.5
+        values = factor(c('None', 'Warning', 'Alert', 'No data available'), levels=c('None', 'Warning', 'Alert', 'No data available')),
+        opacity = 1,
+        fillOpacity = 0.75
       )
   })
   
@@ -1179,9 +1724,8 @@ server <- function(input, output, session) {
       lapply(htmltools::HTML)
     
     pal_inc <- colorFactor(
-      palette = c('blue','yellow','red','lightgray'),
-      levels = c('Decreasing', 'Stable', 'Increasing', 'Sparse'),
-      na.color = "black")
+      palette = c('blue','yellow','red','lightgray', 'black'),
+      levels = c('Decreasing', 'Stable', 'Increasing', 'Sparse', 'No data available'))
     
     inc_leaf <-
       leaflet() %>%
@@ -1191,9 +1735,9 @@ server <- function(input, output, session) {
       addPolylines(
         data = selected_state$state_sf,
         opacity = 1,
-        fillOpacity = 0,
+        fillOpacity = 0.5,
         color = "black", 
-        weight = 1.2
+        weight = 2.0
       ) %>%
       addPolygons(
         data = selected_state$df_sf,
@@ -1201,10 +1745,10 @@ server <- function(input, output, session) {
         stroke = TRUE,
         smoothFactor = 0.5,
         color = "black",
-        fillColor = ~pal_inc(trajectory),
+        fillColor = ~pal_inc(ifelse(is.na(trajectory),'No data available',as.character(trajectory))),
         weight = 1.0,
-        opacity = 0.2,
-        fillOpacity = 0.5,
+        opacity = 1.0,
+        fillOpacity = 0.75,
         highlight = highlightOptions(
           weight = 1,
           color = "black",
@@ -1228,8 +1772,10 @@ server <- function(input, output, session) {
         title = "Increasing",
         labelStyle = 'font-size: 12px;',
         pal = pal_inc,
-        values = selected_state$df_sf$trajectory,
-        fillOpacity = 0.5
+        values = factor(c('Decreasing', 'Stable', 'Increasing', 'Sparse', 'No data available'), 
+                        levels = c('Decreasing', 'Stable', 'Increasing', 'Sparse', 'No data available')),
+        fillOpacity = 0.75,
+        opacity = 1
       )
   })
   
@@ -1264,6 +1810,22 @@ server <- function(input, output, session) {
   observeEvent(input$go, {
     
     dfs <- get_and_mutate_dfs(input)
+    if (is.null(dfs)) {
+      showModal(modalDialog(
+        title = "No Data",
+        HTML("There is no data available for the current selections.<br>
+             Please make another selection."),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+      
+      # Trigger reload when the modal is closed by the user
+      observeEvent(input$shiny.modal.close, {
+        session$reload()  # Perform a hard reset when modal is closed
+      })
+      
+      return()  # Ensure no further processing occurs
+    }
     
     # Update the reactive values
     Reactive_dfs$df_1 <- dfs[[1]]
