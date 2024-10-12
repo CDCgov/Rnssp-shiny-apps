@@ -41,7 +41,7 @@ mainPanelModuleOutput <- function(id) {
               "particular date (indicated by a vertical dashed line) plots the spatial data and statistical tests associated with ",
               "that date."
             ),
-            placement = "right", trigger = "focus",
+            placement = "right", trigger = "click",
             icon_name = "question-circle",
             icon_style = "color:blue;font-size:10px"
           )
@@ -75,7 +75,7 @@ mainPanelModuleOutput <- function(id) {
               "temporal p-values are spatially clustered, ",
               "respectively."
             ),
-            placement = "bottom", trigger = "focus",
+            placement = "bottom", trigger = "click",
             icon_name = "question-circle",
             icon_style = "color:blue;font-size:10px"
           )
@@ -111,7 +111,7 @@ mainPanelModuleOutput <- function(id) {
               "both Alerts and Warnings (red and yellow), treated ",
               "as a single grouping, are spatially clustered."
             ),
-            placement = "bottom", trigger = "focus",
+            placement = "bottom", trigger = "click",
             icon_name = "question-circle",
             icon_style = "color:blue;font-size:10px"
           )
@@ -151,7 +151,7 @@ mainPanelModuleOutput <- function(id) {
               "target='_blank'>Join Count</a> statistical test for global spatial clustering. ",
               "The test tests whether regions labeled 'Increasing' (red) are spatially clustered."
             ),
-            placement = "bottom", trigger = "focus",
+            placement = "bottom", trigger = "click",
             icon_name = "question-circle",
             icon_style = "color:blue;font-size:10px"
           )
