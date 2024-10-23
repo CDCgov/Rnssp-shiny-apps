@@ -107,10 +107,6 @@ sideBarModule <- function(input, output, session) {
     JoinCount_increasing = NULL
     globalMoran = NULL
     
-    output$date1 <- renderText({selected$maps_date})
-    output$date2 <- renderText({selected$maps_date})
-    output$date3 <- renderText({selected$maps_date})
-    
     selected_state$df_sf = st_as_sf(
       right_join(
         Reactive_dfs$df_2[Reactive_dfs$df_2$date == selected$maps_date,], 
@@ -181,11 +177,6 @@ sideBarModule <- function(input, output, session) {
     stat_test$JoinCount_warning_or_alert = ifelse(is.null(JoinCount_warning_or_alert), "NA", round(JoinCount_warning_or_alert[[2]]$p.value[[1]],3))
     stat_test$JoinCount_increasing = ifelse(is.null(JoinCount_increasing), "NA", round(JoinCount_increasing[[2]]$p.value[[1]],3))
     stat_test$globalMoran = ifelse(is.null(globalMoran$p.value), "NA", round(globalMoran$p.value,3))
-    
-    output$globalmoran <- renderText({paste0("Global Moran's I p-value: ", stat_test$globalMoran)})
-    output$joincount_alert <- renderText({paste0("Join Count 'Alert' p-value: ", stat_test$JoinCount_alert)})
-    output$joincount_warning_or_alert <- renderText({paste0("Join Count 'Alert' or 'Warning' p-value: ", stat_test$JoinCount_warning_or_alert)})
-    output$joincount_inc <- renderText({paste0("Join Count 'Increasing' p-value: ", stat_test$JoinCount_increasing)})
   })
   
   get_and_mutate_dfs <- get_proc_data(input, output, session)
