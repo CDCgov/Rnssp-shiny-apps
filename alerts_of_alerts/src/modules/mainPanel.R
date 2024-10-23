@@ -594,6 +594,28 @@ mainPanelModule <- function(input, output, session, sideBarInput) {
     }
   })
   
+  # Update map dates and stats
+  output$date1 <- renderText(sideBarInput()$selected$maps_date)
+  output$date2 <- renderText(sideBarInput()$selected$maps_date)
+  output$date3 <- renderText(sideBarInput()$selected$maps_date)
+  
+  output$globalmoran <- renderText({
+    sideBarInput()$stat_test$globalMoran %>% 
+      paste0("Global Moran's I p-value: ", .)
+  })
+  output$joincount_alert <- renderText({
+    sideBarInput()$stat_test$JoinCount_alert %>% 
+      paste0("Join Count 'Alert' p-value: ", .)
+  })
+  output$joincount_warning_or_alert <- renderText({
+    sideBarInput()$stat_test$JoinCount_warning_or_alert %>% 
+      paste0("Join Count 'Alert' or 'Warning' p-value: ", .)
+  })
+  output$joincount_inc <- renderText({
+    sideBarInput()$stat_test$JoinCount_increasing %>% 
+      paste0("Join Count 'Increasing' p-value: ", .)
+  })
+  
   #------------------ADD COUNTY-WISE TIME SERIES POPUP MODAL-----------------#
   
   # Reactive element to plot time series from p_choropleth on click
