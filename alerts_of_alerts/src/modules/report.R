@@ -24,7 +24,6 @@ reportModule <- function(input, output, session, sideBarInput, widgets) {
   })
 
   observe({
-    message(names(widgets))
     disable <- master_empty()
     shinyjs::toggleState("report", !disable)
   })
