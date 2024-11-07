@@ -1,3 +1,8 @@
+<!-- 
+© 2022 The Johns Hopkins University Applied Physics Laboratory LLC
+Development of this software was sponsored by the U.S. Government under contracts no. 75D30120C07643, 75D30122C15442 
+-->
+
 # Alerts of Alerts Shiny Application
 
 ## Overview
