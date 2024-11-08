@@ -34,7 +34,7 @@ sideBarModuleOutput_alertNavigator <- function(id) {
       inline = TRUE  # Set to TRUE for horizontal orientation
     ),
     actionButton(ns("go"), "Load Data"),
-    hidden(p(id = ns("runText"), style = "color:red;", "Processing in progress... Please, wait!"))
+    hidden(p(id = ns("runText"), style = "color:red;", "Processing in progress... Please, wait!")),
     hr(),
     h4("Filter Controls", 
        style = 'font-size:18px; display: inline-block; margin-right: 12px;'),
