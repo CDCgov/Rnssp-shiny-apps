@@ -34,6 +34,7 @@ sideBarModuleOutput_alertNavigator <- function(id) {
       inline = TRUE  # Set to TRUE for horizontal orientation
     ),
     actionButton(ns("go"), "Load Data"),
+    hidden(p(id = ns("runText"), style = "color:red;", "Processing in progress... Please, wait!"))
     hr(),
     h4("Filter Controls", 
        style = 'font-size:18px; display: inline-block; margin-right: 12px;'),
@@ -171,7 +172,8 @@ sideBarModule_alertNavigator <- function(input, output, session, master, p_dfs, 
   
   #-------------------------------Load Data event-handler-----------------------
   observeEvent(input$go, {
-    
+    shinyjs::show("runText")
+    shinyjs::toggleState("go", FALSE)
     # Assign selected reactives for plotly title
     selected$state = input$State
     selected$date = input$Date
@@ -239,6 +241,8 @@ sideBarModule_alertNavigator <- function(input, output, session, master, p_dfs, 
                                                  selected_state$county_sf[,c("NAME","GEOID","geometry")],
                                                  by = c("FacilityCountyFIPS" = "GEOID")))
     }
+    shinyjs::toggleState("go", TRUE)
+    shinyjs::hide("runText")
   })
   
   #------------------------------UI methods/filters event-handlers---------------
