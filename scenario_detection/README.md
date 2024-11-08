@@ -1,4 +1,4 @@
-# Scenario Detection Shiny Application Documentation
+# Scenario Detection Shiny Application
 
 ## Overview
 
