@@ -97,6 +97,6 @@ Displays individual patient records for further examination.
 
 ## Alerts
 
-The alerting system helps users quickly identify anomalies in health data. Based on p-values or percentiles, the app flags alerts (red), warnings (yellow), and normal conditions (blue), enabling users to drill down into regions, demographics, and syndromic categories to investigate potential health issues.
+The alerting system helps users quickly identify anomalies in their emergency department visit data. Based on p-values or percentiles, the app flags alerts (red), warnings (yellow), and normal conditions (blue), enabling users to drill down into regions, demographics, and syndromic categories and quickly backtrack in order to rapidly investigate the contents of their data.
 
 ---
