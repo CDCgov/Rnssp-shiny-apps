@@ -33,7 +33,7 @@ mainPanelModuleOutput <- function(id) {
               "'https://github.com/CDCgov/Rnssp' target=",
               "'_blank'>Rnssp</a> Switch (Adaptive ",
               "Regression/EWMA) alert detection algorithm, and 3) the number of counties/regions ",
-              "estimated--through the use of Generative Additive Modeling--to have increasing case counts. ",
+              "estimated--through the use of Generalized Additive Modeling (GAM)--to have increasing case counts. ",
               "The two leading subplots subsequently apply the <a href=",
               "'https://github.com/CDCgov/Rnssp' target=",
               "'_blank'>Rnssp</a> Switch (Adaptive ",
