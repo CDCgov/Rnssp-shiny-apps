@@ -136,7 +136,7 @@ mainPanelModuleOutput <- function(id) {
                                 icon_name = "question-circle",
                                 icon_style = "color:blue;font-size:12px"
                               ),
-                              DTOutput(ns("line_level_table")),
+                              withSpinner(DTOutput(ns("line_level_table"))),
                               downloadButton(ns("download_excel"), "Download Excel"))
               )
             )
