@@ -33,7 +33,7 @@ mainPanelModuleOutput <- function(id) {
               "'https://github.com/CDCgov/Rnssp' target=",
               "'_blank'>Rnssp</a> Switch (Adaptive ",
               "Regression/EWMA) alert detection algorithm, and 3) the number of counties/regions ",
-              "estimated--through the use of Generative Additive Modeling--to have increasing case counts. ",
+              "estimated--through the use of Generalized Additive Modeling (GAM)--to have increasing case counts. ",
               "The two leading subplots subsequently apply the <a href=",
               "'https://github.com/CDCgov/Rnssp' target=",
               "'_blank'>Rnssp</a> Switch (Adaptive ",
@@ -883,35 +883,35 @@ mainPanelModule <- function(input, output, session, sideBarInput) {
         ) %>%
         config(modeBarButtons = list(list("toImage"), list("autoScale2d")))
     })
-    
-    #-------------------SYNCHRONIZE MAPS VIEW AND ZOOM---------------------------#
-    # Initialize flags to keep track of user action for each map
-    user_action <- reactiveValues(p_choropleth = FALSE, alerts_choropleth = FALSE, increasing_choropleth = FALSE)
-    
-    # Define names of all choropleth maps
-    choropleth_maps <- c("p_choropleth", "alerts_choropleth", "increasing_choropleth")
-    
-    # Observe changes in bounds for each map
-    lapply(choropleth_maps, function(map_name) {
-      observeEvent(input[[paste0(map_name, "_bounds")]], {
-        if (!user_action[[map_name]]) { # User action
-          
-          # Update all other maps
-          other_maps <- setdiff(choropleth_maps, map_name)
-          lapply(other_maps, function(other_map) {
-            user_action[[other_map]] <<- TRUE
-            leafletProxy(other_map, session) %>%
-              fitBounds(
-                input[[paste0(map_name, "_bounds")]]$west,
-                input[[paste0(map_name, "_bounds")]]$south,
-                input[[paste0(map_name, "_bounds")]]$east,
-                input[[paste0(map_name, "_bounds")]]$north
-              )
-          })
-        } else { # Program action
-          user_action[[map_name]] <<- FALSE
-        }
-      })
+  })
+
+  #-------------------SYNCHRONIZE MAPS VIEW AND ZOOM---------------------------#
+  # Initialize flags to keep track of user action for each map
+  user_action <- reactiveValues(p_choropleth = FALSE, alerts_choropleth = FALSE, increasing_choropleth = FALSE)
+  
+  # Define names of all choropleth maps
+  choropleth_maps <- c("p_choropleth", "alerts_choropleth", "increasing_choropleth")
+  
+  # Observe changes in bounds for each map
+  lapply(choropleth_maps, function(map_name) {
+    observeEvent(input[[paste0(map_name, "_bounds")]], {
+      if (!user_action[[map_name]]) { # User action
+        
+        # Update all other maps
+        other_maps <- setdiff(choropleth_maps, map_name)
+        lapply(other_maps, function(other_map) {
+          user_action[[other_map]] <<- TRUE
+          leafletProxy(other_map, session) %>%
+            fitBounds(
+              input[[paste0(map_name, "_bounds")]]$west,
+              input[[paste0(map_name, "_bounds")]]$south,
+              input[[paste0(map_name, "_bounds")]]$east,
+              input[[paste0(map_name, "_bounds")]]$north
+            )
+        })
+      } else { # Program action
+        user_action[[map_name]] <<- FALSE
+      }
     })
   })
   

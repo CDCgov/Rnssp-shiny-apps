@@ -422,14 +422,25 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       existing_columns <- intersect(c("ICD Diagnosis", "CCSR Category", "Sub-syndrome", "CCDD Category"), names(combined_df))
       
       if (length(existing_columns) > 0) {
+        # Dynamically construct the columns to select
+        columns_to_select <- c(
+          "Source Field",
+          "Syndromic Category",
+          "p",
+          if (normalize == "count") "N" else "Percent",
+          if (normalize == "percent") "N"
+        )
+        
         combined_df <- combined_df %>%
-          pivot_longer(cols = all_of(existing_columns), names_to = "variable", 
-                       values_to = "Syndromic Category", values_drop_na = TRUE) %>%
+          pivot_longer(
+            cols = all_of(existing_columns),
+            names_to = "variable", 
+            values_to = "Syndromic Category",
+            values_drop_na = TRUE
+          ) %>%
           filter(!`Syndromic Category` %in% c("none", "Unmapped (not in CCSR list)")) %>%
-          select(`Source Field`, `Syndromic Category`, `p`,
-                 ifelse(normalize == 'count', 'N', 'Percent'),
-                 if (normalize == 'percent') 'N') %>%
-          arrange('p')
+          select(all_of(columns_to_select)) %>%
+          arrange(p) # Ensure `p` is treated as a column name
       } else {
         combined_df <- NULL
       }
