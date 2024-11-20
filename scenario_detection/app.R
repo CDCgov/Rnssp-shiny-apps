@@ -14,16 +14,16 @@
 # Load helper functions
 source("src/helpers/global.R", local=TRUE)
 source("src/helpers/helpers.R", local=TRUE)
-source("src/helpers/dataproc_alert_navigator.R", local=TRUE)
+source("src/helpers/dataproc.R", local=TRUE)
 
 # Load Modules
-source("src/modules/sideBar_alertNavigator.R", local=TRUE)
-source("src/modules/mainPanel_alertNavigator.R", local=TRUE)
+source("src/modules/sideBar.R", local=TRUE)
+source("src/modules/mainPanel.R", local=TRUE)
 source("src/modules/report.R", local=TRUE)
 
 # Load ui components
 source("src/ui/ui.R", local=TRUE)
-source("src/ui/appUI_alertNavigator.R", local=TRUE)
+source("src/ui/appUI.R", local=TRUE)
 source("src/ui/docUI.R", local=TRUE)
 
 options(shiny.reactlog = TRUE)
@@ -60,7 +60,7 @@ server <- function(input, output, session) {
   #----------------end shared reactiveValues initialization------------------
   
   # Call sidebar module, passing reactive values
-  userInput <- callModule(sideBarModule_alertNavigator, "sideBar_alertNavigator",
+  userInput <- callModule(sideBarModule, "sideBar",
                           master = master,
                           p_dfs = p_dfs,
                           filters = filters,
@@ -68,7 +68,7 @@ server <- function(input, output, session) {
                           selected_state = selected_state)
   
   # Call main panel module, passing the same reactive values
-  widgets_alert_navigator <- callModule(mainPanelModule_alertNavigator, "mainPanel_alertNavigator",
+  widgets <- callModule(mainPanelModule, "mainPanel",
                         master = master,
                         p_dfs = p_dfs,
                         filters = filters,
@@ -78,7 +78,7 @@ server <- function(input, output, session) {
   
   # Call report module when the `Load Data` button is clicked
   observeEvent(userInput$go, {
-    callModule(reportModule, "report", reactive(userInput), reactive(widgets_alert_navigator), master, filters)
+    callModule(reportModule, "report", reactive(userInput), reactive(widgets), master, filters)
   })
 }
 

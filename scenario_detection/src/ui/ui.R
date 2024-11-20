@@ -36,7 +36,7 @@ appUI <- function() {
       title = "Scenario Detection",
       theme = shinytheme("cosmo"),
       id = "nav",
-      appPanel_alert_navigator,
+      appPanel,
       docPanel
     )
   )

@@ -12,7 +12,7 @@
 #----------------------------------------------------
 
 # Main panel UI elements
-mainPanelModuleOutput_alertNavigator <- function(id) {
+mainPanelModuleOutput <- function(id) {
   ns <- NS(id)
 
   mainPanel(width=9,
@@ -49,7 +49,7 @@ mainPanelModuleOutput_alertNavigator <- function(id) {
                                   word="Help",
                                   title = "",
                                   content = paste0(
-                                    "This choropleth map shows the anomalousness of emergencey department 
+                                    "This choropleth map shows the anomalousness of emergency department 
                                       visit rates with respect to the current set of filters, stratified by 
                                       hospital region. Clicking on a particular region filters the remaining records 
                                       for only those which occurred in the selected region."
@@ -67,7 +67,7 @@ mainPanelModuleOutput_alertNavigator <- function(id) {
                                   word="Help",
                                   title = "",
                                   content = paste0(
-                                    "This table shows the anomalousness of emergencey department 
+                                    "This table shows the anomalousness of emergency department 
                                       visit rates with respect to the current set of filters, stratified by 
                                       age group. Clicking on a particular row filters the remaining records 
                                       for only those in the selected age range."
@@ -85,7 +85,7 @@ mainPanelModuleOutput_alertNavigator <- function(id) {
                                   word="Help",
                                   title = "",
                                   content = paste0(
-                                    "This table shows the anomalousness of emergencey department 
+                                    "This table shows the anomalousness of emergency department 
                                       visit rates with respect to the current set of filters, stratified by 
                                       sex. Clicking on a particular row filters the remaining records 
                                       for only those with the selected sex."
@@ -105,7 +105,7 @@ mainPanelModuleOutput_alertNavigator <- function(id) {
                                   word="Help",
                                   title = "",
                                   content = paste0(
-                                    "This table shows the anomalousness of emergencey department 
+                                    "This table shows the anomalousness of emergency department 
                                       visit rates with respect to the current set of filters, stratified by 
                                       all the most up-to-date elements of Sub-syndrome, CCDD Category, and ICD 
                                       Diagnosis code. Clicking on a particular row filters the remaining 
@@ -144,7 +144,7 @@ mainPanelModuleOutput_alertNavigator <- function(id) {
 }
 
 # Main Panel server elements
-mainPanelModule_alertNavigator <- function(input, output, session, sideBarInput, master, p_dfs, filters, selection_history, selected_state) {
+mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs, filters, selection_history, selected_state) {
   
   #--------------------------------Output reactives-----------------------------
   region_map <- reactive({

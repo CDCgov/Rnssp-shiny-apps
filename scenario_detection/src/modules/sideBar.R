@@ -12,7 +12,7 @@
 #----------------------------------------------------
 
 # Side Bar UI elements
-sideBarModuleOutput_alertNavigator <- function(id) {
+sideBarModuleOutput <- function(id) {
   ns <- NS(id)
   
   sidebarPanel(
@@ -64,7 +64,7 @@ sideBarModuleOutput_alertNavigator <- function(id) {
 }
 
 # Side Bar server elements
-sideBarModule_alertNavigator <- function(input, output, session, master, p_dfs, filters, selection_history, selected_state) {
+sideBarModule <- function(input, output, session, master, p_dfs, filters, selection_history, selected_state) {
   ns <- session$ns
   
   #-----------------------------------------------------------------------------

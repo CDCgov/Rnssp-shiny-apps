@@ -11,10 +11,10 @@
 #   Michael Sheppard
 #----------------------------------------------------
 
-appPanel_alert_navigator <- tabPanel(
+appPanel <- tabPanel(
   "Alert Navigator",
   sidebarLayout(
-    sideBarModuleOutput_alertNavigator("sideBar_alertNavigator"),
-    mainPanelModuleOutput_alertNavigator("mainPanel_alertNavigator")
+    sideBarModuleOutput("sideBar"),
+    mainPanelModuleOutput("mainPanel")
   )
 )

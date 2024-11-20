@@ -18,7 +18,7 @@ reportModuleOutput <- function(id) {
   )
 }
 
-reportModule <- function(input, output, session, sideBarInput, widgets_alert_navigator, master, filters) {
+reportModule <- function(input, output, session, sideBarInput, widgets, master, filters) {
   # Reactive function to store the binary empty df status
   master_empty <- reactive({
     is.null(master$df)
@@ -55,7 +55,7 @@ reportModule <- function(input, output, session, sideBarInput, widgets_alert_nav
         selected_min_testdate_records = filters$min_records_testdate,
         
         # Widgets objects (map and tables)
-        widgets_alert_navigator = widgets_alert_navigator
+        widgets = widgets
       )
     )
     parent.env(new_envir) <- globalenv()

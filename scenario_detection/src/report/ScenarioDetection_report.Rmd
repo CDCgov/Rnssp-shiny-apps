@@ -191,9 +191,9 @@ The Alert List Explorer within the Scenario Detection app is intended as an expl
 inc_progress(msg = "Adding demographics-stratified alerts...", amnt = 0.25)
 layout_demog <- div(
   style = "display: flex; justify-content: space-around; margin-left: -25%; margin-right: -25%;",
-  div(style = "width: 32%;", widgets_alert_navigator()$region_object()),
-  div(style = "width: 32%;", widgets_alert_navigator()$age_object()),
-  div(style = "width: 32%;", widgets_alert_navigator()$sex_object())
+  div(style = "width: 32%;", widgets()$region_object()),
+  div(style = "width: 32%;", widgets()$age_object()),
+  div(style = "width: 32%;", widgets()$sex_object())
 )
 
 # Render the layout
@@ -206,7 +206,7 @@ layout_demog
 inc_progress(msg = "Adding diagnostic category-stratified alerts...", amnt = 0.25)
 layout_diag <- div(
   style = "display: flex; justify-content: space-around; margin-left: -25%; margin-right: -25%;",
-  div(style = "width: 100%;", widgets_alert_navigator()$diagnostic_object())
+  div(style = "width: 100%;", widgets()$diagnostic_object())
 )
 
 # Render the layout
