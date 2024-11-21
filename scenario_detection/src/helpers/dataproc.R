@@ -243,7 +243,7 @@ filter_feature_date_df_test_date <- function(df, min_records_testdate) {
 }
 
 # Helper function to normalize counts by day (=percent)
-normalize_df <- function(filtered_df, feature_date_df) {
+normalize_df <- function(filtered_df, feature_date_df, min_records_baseline, min_records_testdate, filter=FALSE) {
   # Generate the frequency table
   date_table <- table(filtered_df$Date)
   # Check and match the columns of feature_date_df with date_table
@@ -252,6 +252,13 @@ normalize_df <- function(filtered_df, feature_date_df) {
   aligned_date_counts <- date_table[match(colnames(feature_date_df), names(date_table))]
   # Replace NA in aligned_date_counts with 1 to avoid division by NA
   aligned_date_counts[is.na(aligned_date_counts)] <- 1
+  
+  if (filter==TRUE) {
+    # Apply minimum count baseline filter
+    feature_date_df <- filter_feature_date_df_baseline(feature_date_df, min_records_baseline)
+    # Apply minimum count test_date filter
+    feature_date_df <- filter_feature_date_df_test_date(feature_date_df, min_records_testdate)
+  }
   # Perform the division only on matching columns
   feature_date_df[, matching_dates] <- sweep(feature_date_df[, matching_dates], 2, aligned_date_counts[matching_dates], "/")
   # Replace NAs resulting from the division with 0s
@@ -344,20 +351,13 @@ p_value_pipeline <- function(df, all_dates, column_name, test_date, normalize,
   if (normalize == "percent") {
     last_count_col = feature_date_df[, ncol(feature_date_df)]
     names(last_count_col) <- rownames(feature_date_df)
-    feature_date_df <- normalize_df(df, feature_date_df)
-  } else {
-    last_count_col = NULL
-  }
-  if (filter==TRUE) {
+    feature_date_df <- normalize_df(df, feature_date_df, min_records_baseline, min_records_testdate, filter)
+    last_count_col <- last_count_col[rownames(feature_date_df)]
+  } else if (filter == TRUE) {
     # Apply minimum count baseline filter
     feature_date_df <- filter_feature_date_df_baseline(feature_date_df, min_records_baseline)
     # Apply minimum count test_date filter
     feature_date_df <- filter_feature_date_df_test_date(feature_date_df, min_records_testdate)
-    # If normalized, retain only the corresponding rows in last_count_col
-    if (!is.null(last_count_col)) {
-      # Filter last_count_col based on the rownames of the filtered feature_date_df
-      last_count_col <- last_count_col[rownames(feature_date_df)]
-    }
   }
   
   if (method == "percentile") {
@@ -366,7 +366,7 @@ p_value_pipeline <- function(df, all_dates, column_name, test_date, normalize,
   } else {
     p_df = compute_p_values(feature_date_df, test_date, column_name, normalize)
   }
-  if (!is.null(last_count_col)) {
+  if (normalize == "percent") {
     p_df <- cbind(p_df, N = as.numeric(last_count_col))
   }
   if (!is.null(p_df)) {
