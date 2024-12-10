@@ -57,8 +57,8 @@ The app processes data in several steps before visualizations are displayed:
 1. **Data Retrieval**: The app retrieves emergency department visit records from the NSSP-ESSENCE API.
 2. **Data Transformation**: Categories such as age groups, regions, and diagnostic codes are processed and transformed for consistency and analysis.
 3. **p-value/Percentile Computation**: Alerts are computed for each region and demographic based on statistical analysis:
-   - **Parametric**: Z-scores and p-values are calculated assuming a Gaussian distribution.
-   - **Non-parametric**: Percentiles are computed to assess the relative count of events.
+   - **Parametric**: p-values are calculated assuming a Gaussian distribution.
+   - **Non-parametric**: Percentiles are computed to assess the relative count/percent of events.
 
 ---
 
@@ -66,7 +66,7 @@ The app processes data in several steps before visualizations are displayed:
 
 ### Gaussian (Parametric) Method
 
-The Gaussian method assumes that the data follows a normal distribution. For each feature (such as region or age group), the app calculates **Z-scores** by comparing the test date's count to the mean and standard deviation of the baseline period. The resulting **p-value** indicates how likely it is that the observed count is part of the baseline distribution. Lower p-values (e.g., <0.01) signify anomalies or alerts.
+The Gaussian method assumes that the data follows a normal distribution. For each feature (such as region or age group), the app calculates **p-values** by comparing the test date's count/percent to the mean and standard deviation of the 28-day baseline period. The resulting **p-value** indicates how likely it is that the observed count/percent is part of the baseline distribution. Lower p-values (e.g., <0.01) signify anomalies or alerts.
 
 **Key Interpretation**:
 - **p-value < 0.01**: Alert (significant deviation).
@@ -75,7 +75,7 @@ The Gaussian method assumes that the data follows a normal distribution. For eac
 
 ### Non-parametric (Percentile) Method
 
-The non-parametric method does not assume any specific distribution. Instead, it calculates the **percentile** of the test date's count relative to the baseline counts. This method is useful when the data distribution is unknown or skewed. To remain consistent with the Gaussian Method representation, the computed percentiles are presented as p-values. That is, a count or percentage that is computed to be in the 0.95 percentile will be depicted as having a p-value of 0.05.
+The non-parametric method does not assume any specific distribution. Instead, it calculates the **percentile** of the test date's count/percent relative to the 28-day baseline counts/percents. This method is useful when the data distribution is unknown or skewed (e.g., data which is sparse or is likely to contain anomalies within the baseline period). To remain consistent with the Gaussian Method representation, the computed percentiles are presented as p-values. That is, a count or percentage that is computed to be in the 0.95 percentile will be depicted as having a p-value of 0.05.
 
 **Key Interpretation**:
 - **Percentile ≥ 0.01**: Alert (high deviation).
