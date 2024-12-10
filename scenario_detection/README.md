@@ -34,7 +34,7 @@ The app processes data in several steps before visualizations are displayed:
 
 ### Gaussian (Parametric) Method
 
-The Gaussian method assumes a normal distribution for the data. For each feature (such as region or age group), the app calculates **Z-scores** by comparing the test date's count to the mean and standard deviation of the baseline period. The resulting **p-value** indicates the likelihood that the observed count is part of the baseline distribution. Lower p-values (e.g., <0.01) signify anomalies or alerts.
+The Gaussian method assumes a normal distribution for the data. For each feature (such as region or age group), the app calculates **p-values** by comparing the test date's count/percent to the mean and standard deviation of the 28-day baseline period. The resulting **p-value** indicates the likelihood that the observed count is part of the baseline distribution. Lower p-values (e.g., <0.01) signify anomalies or alerts.
 
 **Key Interpretation**:
 - **p-value < 0.01**: Alert (significant deviation).
@@ -43,7 +43,7 @@ The Gaussian method assumes a normal distribution for the data. For each feature
 
 ### Non-parametric (Percentile) Method
 
-The non-parametric method does not assume any specific distribution. Instead, it calculates the **percentile** of the test date's count relative to the baseline counts. This method is useful for data distributions that are unknown or skewed. Computed percentiles are presented as p-values for consistency with the Gaussian method's interpretation.
+The non-parametric method does not assume any specific distribution. Instead, it calculates the **percentile** of the test date's count/percent relative to the 28-day baseline counts/percents. This method is useful for data distributions that are unknown or skewed (e.g., data which is sparse or is likely to contain anomalies within the baseline period). Computed percentiles are presented as p-values for consistency with the Gaussian method's interpretation.
 
 **Key Interpretation**:
 - **Percentile ≥ 0.01**: Alert (high deviation).
@@ -54,7 +54,7 @@ The non-parametric method does not assume any specific distribution. Instead, it
 
 ### Overview
 
-Each map and table in the app can be considered **semi-independently** and represents the application of a Naive Bayes statistical independence assumption over the analyzed fields. Alerts are computed for each feature (e.g., region, age group, sex) with respect to all records that match the current filters applied. If no filters are selected, each widget (map or table) performs an **independent analysis** of the observed-versus-expected rates of each feature element without considering other feature categories.
+Each map and table in the app can be considered **semi-independently** and represents the application of a Naive Bayes-like statistical independence assumption over the analyzed fields. Alerts are computed for each feature (e.g., region, age group, sex) with respect to all records that match the current filters applied. If no filters are selected, each widget (map or table) performs an **independent analysis** of the observed-versus-expected rates of each feature element without considering other feature categories.
 
 ### 1. Region Map (Leaflet)
 
@@ -100,3 +100,8 @@ Displays individual patient records for further examination.
 The alerting system helps users quickly identify anomalies in their emergency department visit data. Based on p-values or percentiles, the app flags alerts (red), warnings (yellow), and normal conditions (blue), enabling users to drill down into regions, demographics, and syndromic categories and quickly backtrack in order to rapidly investigate the contents of their data.
 
 ---
+
+## Changelog
+
+### Updates on 2024-12-10
+- Updated in-app documentation/README to include more information on the detector methods.
