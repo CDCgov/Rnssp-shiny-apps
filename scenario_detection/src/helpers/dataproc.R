@@ -420,33 +420,55 @@ p_loop_over_diagnostic_features <- function(p_dfs, df, all_dates, normalize, met
 
 # function for filtering master df in response to user-selections
 filtered <- function (master, filters, p_dfs, selected_state, selected, record_number=FALSE) {
-  filtered_df <- master$df
-  if (!is.null(filters$region)) {
-    filtered_df <- filtered_df[filtered_df$HospitalRegion == filters$region, ]
-  }
-  if (!is.null(filters$age)) {
-    filtered_df <- filtered_df[filtered_df$AgeGroup == filters$age, ]
-  }
-  if (!is.null(filters$subc)) {
-    temp_col = lapply(filtered_df$SubCategory_flat, drop_non_matching, filters$subc)
-    filtered_df <- filtered_df[temp_col == filters$subc, ]
-  }
-  if (!is.null(filters$ccdd)) {
-    temp_col = lapply(filtered_df$CCDDCategory_flat, drop_non_matching, filters$ccdd)
-    filtered_df <- filtered_df[temp_col == filters$ccdd, ]
-  }
-  if (!is.null(filters$dd)) {
-    temp_col = lapply(filtered_df$C_DiagnosisCode_ICD10_Flat, drop_non_matching, filters$dd)
-    filtered_df <- filtered_df[temp_col == filters$dd, ]
-  }
-  if (!is.null(filters$ccsr)) {
-    temp_col = lapply(filtered_df$ICD_CCSR_flat, drop_non_matching, filters$ccsr)
-    filtered_df <- filtered_df[temp_col == filters$ccsr, ]
-  }
-  if (!is.null(filters$sex)) {
-    temp_col = lapply(filtered_df$Sex, drop_non_matching, filters$sex)
-    filtered_df <- filtered_df[temp_col == filters$sex, ]
-  }
+  withProgress(message = "Applying data filters...", value = 0, {
+    filtered_df <- master$df
+    total_steps <- 7  # Total number of conditions to filter on
+    step <- 0
+    
+    if (!is.null(filters$region)) {
+      setProgress(value = step / total_steps, detail = "Filtering by Hospital Region...")
+      filtered_df <- filtered_df[filtered_df$HospitalRegion == filters$region, ]
+      step <- step + 1
+    }
+    if (!is.null(filters$age)) {
+      setProgress(value = step / total_steps, detail = "Filtering by Age Group...")
+      filtered_df <- filtered_df[filtered_df$AgeGroup == filters$age, ]
+      step <- step + 1
+    }
+    if (!is.null(filters$subc)) {
+      setProgress(value = step / total_steps, detail = "Filtering by Subcategory...")
+      temp_col <- lapply(filtered_df$SubCategory_flat, drop_non_matching, filters$subc)
+      filtered_df <- filtered_df[temp_col == filters$subc, ]
+      step <- step + 1
+    }
+    if (!is.null(filters$ccdd)) {
+      setProgress(value = step / total_steps, detail = "Filtering by CCDD Category...")
+      temp_col <- lapply(filtered_df$CCDDCategory_flat, drop_non_matching, filters$ccdd)
+      filtered_df <- filtered_df[temp_col == filters$ccdd, ]
+      step <- step + 1
+    }
+    if (!is.null(filters$dd)) {
+      setProgress(value = step / total_steps, detail = "Filtering by Diagnosis Code...")
+      temp_col <- lapply(filtered_df$C_DiagnosisCode_ICD10_Flat, drop_non_matching, filters$dd)
+      filtered_df <- filtered_df[temp_col == filters$dd, ]
+      step <- step + 1
+    }
+    if (!is.null(filters$ccsr)) {
+      setProgress(value = step / total_steps, detail = "Filtering by ICD CCSR...")
+      temp_col <- lapply(filtered_df$ICD_CCSR_flat, drop_non_matching, filters$ccsr)
+      filtered_df <- filtered_df[temp_col == filters$ccsr, ]
+      step <- step + 1
+    }
+    if (!is.null(filters$sex)) {
+      setProgress(value = step / total_steps, detail = "Filtering by Sex...")
+      temp_col <- lapply(filtered_df$Sex, drop_non_matching, filters$sex)
+      filtered_df <- filtered_df[temp_col == filters$sex, ]
+      step <- step + 1
+    }
+    
+    # Final progress update
+    setProgress(value = 1, detail = "Filtering complete!")
+  })
   
   master$filtered_df = filtered_df
   
