@@ -392,8 +392,10 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       # DischargeDiagnosis
       if (!is.null(dd_table)) {
         ICDDiagnosis <- ifelse(dd_table$C_DiagnosisCode_ICD10_Flat %in% names(master$icd_list), 
-                               unname(master$icd_list[dd_table$C_DiagnosisCode_ICD10_Flat]), 
+                               paste0(dd_table$C_DiagnosisCode_ICD10_Flat, ": ", 
+                                      unname(master$icd_list[dd_table$C_DiagnosisCode_ICD10_Flat])), 
                                paste0(dd_table$C_DiagnosisCode_ICD10_Flat, " (not in ICD list)"))
+        
         dd_table <- dd_table[, !(names(dd_table) %in% "C_DiagnosisCode_ICD10_Flat")]
         dd_table <- cbind(ICDDiagnosis, dd_table)
         colnames(dd_table)[1] <- "ICD Diagnosis"
@@ -403,7 +405,8 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       # CCSR
       if (!is.null(ccsr_table)) {
         CCSR <- ifelse(ccsr_table$ICD_CCSR_flat %in% names(master$ccsr_list), 
-                       unname(master$ccsr_list[ccsr_table$ICD_CCSR_flat]), 
+                       paste0(ccsr_table$ICD_CCSR_flat, ": ",
+                              unname(master$ccsr_list[ccsr_table$ICD_CCSR_flat])), 
                        paste0(ccsr_table$ICD_CCSR_flat, " (not in CCSR list)"))
         ccsr_table <- ccsr_table[, !(names(ccsr_table) %in% "ICD_CCSR_flat")]
         ccsr_table <- cbind(CCSR, ccsr_table)
@@ -705,6 +708,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
         filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
       }
     } else if (source_field_nice == "ICD Diagnosis") {
+      new_selection = substring(new_selection, 6)
       new_selection = names(master$icd_list)[which(master$icd_list == new_selection)]
       if (identical(new_selection, filters$dd)) {
         return() # If the selection is the same, don't add to history
@@ -714,6 +718,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
         filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
       }
     } else if (source_field_nice == "CCSR Category") {
+      new_selection = substring(new_selection, 9)
       new_selection = names(master$ccsr_list)[which(master$ccsr_list == new_selection)]
       if (identical(new_selection, filters$ccsr)) {
         return() # If the selection is the same, don't add to history
