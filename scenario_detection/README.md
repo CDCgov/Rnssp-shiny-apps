@@ -95,9 +95,64 @@ Displays individual patient records for further examination.
 **Interpreting the Table**:
 - Shows diagnostic codes, age groups, sex, and regions for each record under the current filter set from the "Alerts Explorer Tab."
 
-## Alerts
+## Repository File Structure Overview
 
-The alerting system helps users quickly identify anomalies in their emergency department visit data. Based on p-values or percentiles, the app flags alerts (red), warnings (yellow), and normal conditions (blue), enabling users to drill down into regions, demographics, and syndromic categories and quickly backtrack in order to rapidly investigate the contents of their data.
+This section outlines the key aspects of the repository, identifying where various tasks such as data processing, statistical analysis, and UI components are defined.
+
+### 1. **Data Reading and Processing**
+The following files handle reading and processing data for the application:
+
+- **`src/helpers/dataproc.R`**  
+   Contains functions for cleaning and preparing datasets.
+
+- **`src/helpers/global.R`**  
+   Loads global data and libraries, executed at app startup.
+   
+---
+
+### 2. **Statistical Processes**
+The files below define statistical methods and related processing:
+
+- **`src/helpers/helpers.R`**  
+   Includes statistical helper functions, such as model fitting and transformations.
+
+---
+
+### 3. **Sidebar Widgets**
+The sidebar UI components are defined in:
+
+- **`src/modules/sideBar.R`**  
+   Specifies sidebar widgets such as `selectInput`, `sliderInput`, and `radioButtons`.
+
+---
+
+### 4. **Main Panel Widgets**
+Main panel UI components and outputs are located in:
+
+- **`src/modules/mainPanel.R`**  
+   Defines widgets for tables, plots, and other visual outputs.
+
+---
+
+### 5. **Interactivity**
+Interactivity between sidebar widgets, main panel outputs, and backend logic is implemented in:
+
+- **`app.R`**  
+   Links the user interface (UI) to the server logic.
+
+- **`src/ui/ui.R`**  
+   Defines the overall UI layout, connecting sidebar and main panel components.
+
+---
+
+### 6. **Downloadable (HTML) Report**
+The rerport, including its format and content, are implemented in:
+
+- **`src/modules/report.R`**  
+   Instantiates the download handler and passes the current widget states.
+
+- **`src/report/Scenario_Detection_report.Rmd`**
+   Markdown defining the structure, content, and format of the downloadable report.
 
 ---
 
@@ -105,3 +160,5 @@ The alerting system helps users quickly identify anomalies in their emergency de
 
 ### Updates on 2024-12-10
 - Updated in-app documentation/README to include more information on the detector methods.
+### Updates on 2024-12-17
+- Updated README to include a description of where key elements of the app (e.g., data processing, statistical computation, UI element defintion, report implementation) are located in the file structure.
