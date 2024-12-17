@@ -102,7 +102,7 @@ This section outlines the key aspects of the repository, identifying where vario
 ### 1. **Data Reading and Processing**
 The following files handle reading and processing data for the application:
 
-- **`src/helpers/dataproc.R`**  
+- **[`src/helpers/dataproc.R`](src/helpers/dataproc.R)**  
    Contains functions for cleaning and preparing datasets.
 
 - **`src/helpers/global.R`**  
@@ -113,7 +113,7 @@ The following files handle reading and processing data for the application:
 ### 2. **Statistical Processes**
 The files below define statistical methods and related processing:
 
-- **`src/helpers/helpers.R`**  
+- **[`src/helpers/helpers.R`](src/helpers/helpers.R)**  
    Includes statistical helper functions, such as model fitting and transformations.
 
 ---
@@ -121,7 +121,7 @@ The files below define statistical methods and related processing:
 ### 3. **Sidebar Widgets**
 The sidebar UI components are defined in:
 
-- **`src/modules/sideBar.R`**  
+- **[`src/modules/sideBar.R`](src/modules/sideBar.R)**  
    Specifies sidebar widgets such as `selectInput`, `sliderInput`, and `radioButtons`.
 
 ---
@@ -129,7 +129,7 @@ The sidebar UI components are defined in:
 ### 4. **Main Panel Widgets**
 Main panel UI components and outputs are located in:
 
-- **`src/modules/mainPanel.R`**  
+- **[`src/modules/mainPanel.R`](src/modules/mainPanel.R)**  
    Defines widgets for tables, plots, and other visual outputs.
 
 ---
@@ -137,10 +137,10 @@ Main panel UI components and outputs are located in:
 ### 5. **Interactivity**
 Interactivity between sidebar widgets, main panel outputs, and backend logic is implemented in:
 
-- **`app.R`**  
+- **[`app.R`](app.R)**  
    Links the user interface (UI) to the server logic.
 
-- **`src/ui/ui.R`**  
+- **[`src/ui/ui.R`](src/ui/ui.R)**  
    Defines the overall UI layout, connecting sidebar and main panel components.
 
 ---
@@ -148,10 +148,10 @@ Interactivity between sidebar widgets, main panel outputs, and backend logic is 
 ### 6. **Downloadable (HTML) Report**
 The rerport, including its format and content, are implemented in:
 
-- **`src/modules/report.R`**  
+- **[`src/modules/report.R`](src/modules/report.R)**  
    Instantiates the download handler and passes the current widget states.
 
-- **`src/report/Scenario_Detection_report.Rmd`**
+- **[`src/report/Scenario_Detection_report.Rmd`](src/report/Scenario_Detection_report.Rmd)**
    Markdown defining the structure, content, and format of the downloadable report.
 
 ---
