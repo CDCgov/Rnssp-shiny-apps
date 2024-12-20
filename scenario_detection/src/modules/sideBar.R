@@ -273,8 +273,10 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
   output$selectionText <- renderText({
     if (length(selection_history$history) > 0) {
       selected_history <- selection_history$history[[length(selection_history$history)]]
+      text <- paste("<B>Total Number of Records Within Current Filters (Including Baseline Period) =</B>", nrow(master$filtered_df), "<br/>")
+      text <- paste(text, "<B>Number of Test Date Records Within Current Filters =</B>", nrow(master$filtered_df[master$filtered_df$Date==format(selected$date, "%m/%d/%Y"),]), "<br/> <br/>")
       if (!is.null(selected_history$MinRecordsBaseline)) {
-        text <- paste("<B>Baseline Record Minimum =</B>", selected_history$MinRecordsBaseline, "<br/>")
+        text <- paste(text, "<B>Baseline Record Minimum =</B>", selected_history$MinRecordsBaseline, "<br/>")
       }
       if (!is.null(selected_history$MinRecordsTestDate)) {
         text <- paste(text, "<B>Test Date Record Minimum =</B>", selected_history$MinRecordsTestDate, "<br/>")
