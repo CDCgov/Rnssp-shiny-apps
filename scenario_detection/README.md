@@ -162,3 +162,5 @@ The rerport, including its format and content, are implemented in:
 - Updated in-app documentation/README to include more information on the detector methods.
 ### Updates on 2024-12-17
 - Updated README to include a description of where key elements of the app (e.g., data processing, statistical computation, UI element defintion, report implementation) are located in the file structure.
+- Updated filters to include text for how many total records are retained within the current filter set across both the baseline period and for particular date being analyzed.
+- Updated Syndromic Category table to include ICD-10 and CCSR codes alongside their text descriptions.
