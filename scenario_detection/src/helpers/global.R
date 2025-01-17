@@ -19,7 +19,7 @@ suppressPackageStartupMessages({
     "plotly", "shinyWidgets", "sf", "shinythemes",
     "janitor", "tidyverse", "leaflet", "leaflegend",
     "spdep", "shinydashboard", "stringr", "DT", 
-    "kableExtra", "knitr", "htmltools", "openxlsx"
+    "kableExtra", "knitr", "htmltools", "openxlsx", "markdown"
   )
 })
 
