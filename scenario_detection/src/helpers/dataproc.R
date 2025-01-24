@@ -345,8 +345,6 @@ p_value_pipeline <- function(df, all_dates, column_name, test_date, normalize,
   feature_date_df <- create_crosstab_dataframe(df, column_name, all_dates)
   # Drop guardband dates
   feature_date_df <- drop_guardband_dates(feature_date_df, test_date)
-  # Capture the original rownames to preserve ordering later
-  original_rownames <- rownames(feature_date_df)
   # Normalize
   if (normalize == "percent") {
     last_count_col = feature_date_df[, ncol(feature_date_df)]
