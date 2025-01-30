@@ -19,7 +19,8 @@ suppressPackageStartupMessages({
     "plotly", "shinyWidgets", "sf", "shinythemes",
     "janitor", "tidyverse", "leaflet", "leaflegend",
     "spdep", "shinydashboard", "stringr", "DT", 
-    "kableExtra", "knitr", "htmltools", "openxlsx", "markdown"
+    "kableExtra", "knitr", "htmltools", "openxlsx",
+    "sparkline", "htmlwidgets"
   )
 })
 
@@ -103,7 +104,7 @@ EndDate_0 <- Sys.Date() %m-% days(1)
 field_names <- c("SubCategory_flat", "CCDDCategory_flat", "C_DiagnosisCode_ICD10_Flat",
                  "ICD_CCSR_flat")
 nice_field_names <- c("Sub-syndrome", "CCDD Category", "ICD Diagnosis", "CCSR Category")
-nice_to_field_list <- setNames(field_names, nice_field_names)
+nice_to_field_list <- setNames(nice_field_names, field_names)
 
 # convert "raw" labels to "nice" labels for render
 sex_categories <- c("M", "F", "O", "U", "Z", "N")

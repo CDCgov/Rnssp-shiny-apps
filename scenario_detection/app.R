@@ -26,8 +26,6 @@ source("src/ui/ui.R", local=TRUE)
 source("src/ui/appUI.R", local=TRUE)
 source("src/ui/docUI.R", local=TRUE)
 
-options(shiny.reactlog = TRUE)
-
 ## ui --------------------------------------------------------------------------
 ui <- appUI()
 
