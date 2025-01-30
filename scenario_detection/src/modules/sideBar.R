@@ -221,7 +221,7 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
     master$ccsr_list <- codes_lists[[2]]
     master$region_fips <- master$df[c('HospitalRegion', 'FacilityCountyFIPS')] %>% distinct() %>% 
       mutate(FacilityCountyFIPS = factor(FacilityCountyFIPS))
-    master$all_dates <- sort(unique(master$df$Date))
+    master$all_dates <- sort(unique(as.Date(master$df$Date, format = "%m/%d/%Y")))
     p_loop_over_all_features(p_dfs, master$df, master$all_dates, selected$normalize, selected$method, input$min_records_baseline, input$min_records_testdate)
     
     # Get selected state geometry
@@ -274,7 +274,7 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
     if (length(selection_history$history) > 0) {
       selected_history <- selection_history$history[[length(selection_history$history)]]
       text <- paste("<B>Total Number of Records Within Current Filters (Including Baseline Period) =</B>", nrow(master$filtered_df), "<br/>")
-      text <- paste(text, "<B>Number of Test Date Records Within Current Filters =</B>", nrow(master$filtered_df[master$filtered_df$Date==format(selected$date, "%m/%d/%Y"),]), "<br/> <br/>")
+      text <- paste(text, "<B>Number of Test Date Records Within Current Filters =</B>", nrow(master$filtered_df[master$filtered_df$Date==as.Date(selected$date, format = "%m/%d/%Y"),]), "<br/> <br/>")
       if (!is.null(selected_history$MinRecordsBaseline)) {
         text <- paste(text, "<B>Baseline Record Minimum =</B>", selected_history$MinRecordsBaseline, "<br/>")
       }

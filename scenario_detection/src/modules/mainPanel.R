@@ -76,6 +76,7 @@ mainPanelModuleOutput <- function(id) {
                                   icon_name = "question-circle",
                                   icon_style = "color:blue;font-size:12px"
                                 ),
+                                getDependency('sparkline'),
                                 withSpinner(DTOutput(ns("age_table")))),
                          column(width = 4,
                                 h4("Sex p-values", 
@@ -94,6 +95,7 @@ mainPanelModuleOutput <- function(id) {
                                   icon_name = "question-circle",
                                   icon_style = "color:blue;font-size:12px"
                                 ),
+                                getDependency('sparkline'),
                                 withSpinner(DTOutput(ns("sex_table"))))
                        ),
                        fluidRow(
@@ -116,6 +118,7 @@ mainPanelModuleOutput <- function(id) {
                                   icon_name = "question-circle",
                                   icon_style = "color:blue;font-size:12px"
                                 ),
+                                getDependency('sparkline'),
                                 withSpinner(DTOutput(ns("combined_table"))))
                        )
               ),
@@ -272,148 +275,295 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       )
   })
   
+  # age table sparkline html generator helper
+  age_sparkline_table <- function(age_df_list, all_dates, selected) {
+    
+    age_df <- age_df_list[[1]]
+    
+    age_col <- "Age Group"
+    colnames(age_df)[1] <- age_col
+    
+    # Create sparklines with valueSpots
+    sparkline_html <- age_df[, {
+      values <- if (selected$normalize == 'count') N else Percent
+      value_spots_named <- setNames(as.list(color), values)
+      
+      tooltip_fmt <- if (selected$normalize == 'count') {
+        '<b>N:</b> {{y}} <br> <b>Date:</b> {{x:dates}}'
+      } else {
+        '<b>Percent:</b> {{y}} <br> <b>Date:</b> {{x:dates}}'
+      }
+      
+      .(Sparkline = spk_chr(
+        values, 
+        type = 'line', 
+        width = '80px', 
+        fillColor = FALSE, 
+        defaultPixelsPerValue = 5, 
+        spotColor = FALSE, 
+        minSpotColor = FALSE, 
+        maxSpotColor = FALSE, 
+        spotRadius = 4, 
+        valueSpots = value_spots_named, 
+        highlightSpotColor = NULL, 
+        highlightLineColor = NULL, 
+        lineWidth = 2, 
+        tooltipFormat = tooltip_fmt, 
+        tooltipValueLookups = list(dates = tail(all_dates, 7))
+      ))
+    }, by = age_col]
+    
+    if (selected$normalize == 'count') {
+      sparkline_html = cbind(sparkline_html, "N (last day)" = age_df_list[[2]])
+    } else {
+      sparkline_html = cbind(sparkline_html, "Percent (last day)" = age_df_list[[2]])
+    }
+    
+    if (selected$method == 'gauss') {
+      sparkline_html = cbind(sparkline_html, "p (last day)" = age_df_list[[3]])
+    } else {
+      sparkline_html = cbind(sparkline_html, "Percentile (last day)" = age_df_list[[3]])
+    }
+    
+    sparkline_html = merge(sparkline_html, age_df %>%
+                             filter(color == "red") %>%
+                             count(!!sym(age_col)) %>%
+                             full_join(setNames(data.frame(unique(age_df[[age_col]])), age_col), by = age_col) %>%
+                             mutate(`# Alerts` = ifelse(is.na(n), 0, n)) %>%
+                             select(-n),
+                           sort = FALSE)
+    
+    return(sparkline_html)
+  }
+  
   age_table <- reactive({
     req(p_dfs$age)
     normalize = sideBarInput()$selected$normalize
     method = sideBarInput()$selected$method
     
-    # Clone p_dfs$age to avoid modifying the reactiveValue directly
-    age_data <- p_dfs$age
-    colnames(age_data)[1] <- "Age Group"
+    # Get the sparkline HTML table
+    sparkline_html <- age_sparkline_table(p_dfs$age, master$all_dates, sideBarInput()$selected)
     
+    staticRender_cb <- JS('function(){debugger;HTMLWidgets.staticRender();}')
+    
+    # Convert it to a datatable and apply conditional formatting
+    dt <- datatable(
+      sparkline_html, 
+      escape = FALSE, 
+      rownames = FALSE, 
+      options = list(drawCallback = staticRender_cb)
+    )
+    
+    # Apply formatStyle based on the selected method
     if (method == 'gauss') {
-      colnames(age_data)[2] <- "p (Normal)"
+      dt <- dt %>%
+        formatStyle(
+          'p (last day)',
+          backgroundColor = styleInterval(
+            c(0.01, 0.05),
+            c('rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 0, 255, 0.5)')
+          )
+        )
     } else {
-      colnames(age_data)[2] <- "p (Percentile)"
+      dt <- dt %>%
+        formatStyle(
+          'Percentile (last day)',
+          backgroundColor = styleInterval(
+            c(95, 99),
+            c('rgba(0, 0, 255, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(255, 0, 0, 0.5)')
+          )
+        )
     }
     
-    if (normalize == "percent") {
-      percentColumnDef = list(
-        targets = 2,
-        render = DT::JS(
-          "function(data, type, row, meta) {",
-          "  if(type === 'display'){",
-          "    return data + '%';",
-          "  } else {",
-          "    return data;",
-          "  }",
-          "}"
-        )
-      )
-      coldefs = list(percentColumnDef)
-    } else {
-      coldefs = NULL
-    }
-    
-    dt <- datatable(age_data, selection='single', options = list(dom = 't', columnDefs = coldefs), rownames=FALSE)
-    
-    column_to_style <- if (method == 'gauss') 'p (Normal)' else 'p (Percentile)'
-    
-    dt <- dt %>%
-      formatStyle(
-        column_to_style,
-        backgroundColor = styleInterval(
-          c(0.01, 0.05),
-          c('rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 0, 255, 0.5)')
-        )
-      )
+    # Return the datatable
     dt
   })
+  
+  sex_sparkline_table <- function(sex_df_list, all_dates, selected) {
+    
+    sex_df <- sex_df_list[[1]]
+    sex_col = "Sex"
+    
+    # Create sparklines with valueSpots
+    sparkline_html <- sex_df[, {
+      values <- if (selected$normalize == 'count') N else Percent
+      value_spots_named <- setNames(as.list(color), values)
+      
+      tooltip_fmt <- if (selected$normalize == 'count') {
+        '<b>N:</b> {{y}} <br> <b>Date:</b> {{x:dates}}'
+      } else {
+        '<b>Percent:</b> {{y}} <br> <b>Date:</b> {{x:dates}}'
+      }
+      
+      .(Sparkline = spk_chr(
+        values, 
+        type = 'line', 
+        width = '80px', 
+        fillColor = FALSE, 
+        defaultPixelsPerValue = 5, 
+        spotColor = FALSE, 
+        minSpotColor = FALSE, 
+        maxSpotColor = FALSE, 
+        spotRadius = 4, 
+        valueSpots = value_spots_named, 
+        highlightSpotColor = NULL, 
+        highlightLineColor = NULL, 
+        lineWidth = 2, 
+        tooltipFormat = tooltip_fmt, 
+        tooltipValueLookups = list(dates = tail(all_dates, 7))
+      ))
+    }, by = sex_col]
+    
+    if (selected$normalize == 'count') {
+      sparkline_html = cbind(sparkline_html, "N (last day)" = sex_df_list[[2]])
+    } else {
+      sparkline_html = cbind(sparkline_html, "Percent (last day)" = sex_df_list[[2]])
+    }
+    
+    if (selected$method == 'gauss') {
+      sparkline_html = cbind(sparkline_html, "p (last day)" = sex_df_list[[3]])
+    } else {
+      sparkline_html = cbind(sparkline_html, "Percentile (last day)" = sex_df_list[[3]])
+    }
+    
+    sparkline_html = merge(sparkline_html, sex_df %>%
+                             filter(color == "red") %>%
+                             count(!!sym(sex_col)) %>%
+                             full_join(setNames(data.frame(unique(sex_df[[sex_col]])), sex_col), by = sex_col) %>%
+                             mutate(`# Alerts` = ifelse(is.na(n), 0, n)) %>%
+                             select(-n),
+                           sort = FALSE)
+    return(sparkline_html)
+  }
   
   sex_table <- reactive({
     req(p_dfs$sex)
     normalize = sideBarInput()$selected$normalize
     method = sideBarInput()$selected$method
     
-    # Clone p_dfs$sex to avoid modifying the reactiveValue directly
-    sex_data <- p_dfs$sex
+    sparkline_html <- sex_sparkline_table(p_dfs$sex, master$all_dates, sideBarInput()$selected)
     
+    staticRender_cb <- JS('function(){debugger;HTMLWidgets.staticRender();}')
+    
+    # Convert it to a datatable and apply conditional formatting
+    dt <- datatable(
+      sparkline_html, 
+      escape = FALSE, 
+      rownames = FALSE, 
+      options = list(drawCallback = staticRender_cb)
+    )
+    
+    # Apply formatStyle based on the selected method
     if (method == 'gauss') {
-      colnames(sex_data)[2] <- "p (Normal)"
+      dt <- dt %>%
+        formatStyle(
+          'p (last day)',
+          backgroundColor = styleInterval(
+            c(0.01, 0.05),
+            c('rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 0, 255, 0.5)')
+          )
+        )
     } else {
-      colnames(sex_data)[2] <- "p (Percentile)"
+      dt <- dt %>%
+        formatStyle(
+          'Percentile (last day)',
+          backgroundColor = styleInterval(
+            c(95, 99),
+            c('rgba(0, 0, 255, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(255, 0, 0, 0.5)')
+          )
+        )
     }
     
-    if (normalize == "percent") {
-      percentColumnDef = list(
-        targets = 2,
-        render = DT::JS(
-          "function(data, type, row, meta) {",
-          "  if(type === 'display'){",
-          "    return data + '%';",
-          "  } else {",
-          "    return data;",
-          "  }",
-          "}"
-        )
-      )
-      coldefs = list(percentColumnDef)
-    } else {
-      coldefs = NULL
-    }
-    
-    #, columnDefs = coldefs
-    dt <- datatable(sex_data, selection='single', options = list(dom = 't', columnDefs = coldefs), rownames=FALSE)
-    
-    column_to_style <- if (method == 'gauss') 'p (Normal)' else 'p (Percentile)'
-    
-    dt <- dt %>%
-      formatStyle(
-        column_to_style,
-        backgroundColor = styleInterval(
-          c(0.01, 0.05),
-          c('rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 0, 255, 0.5)')
-        )
-      )
-    
+    # Return the datatable
     dt
   })
   
-  # Reactive for processing combined_df
+  category_sparkline_table <- function(category_df_list, all_dates, selected, icd_list=NULL, ccsr_list=NULL) {
+    category_df <- category_df_list[[1]]
+    
+    category_col <- as.character(nice_to_field_list[colnames(category_df_list[[1]])][1])
+    colnames(category_df)[1] <- category_col
+    
+    if (category_col == "ICD Diagnosis") {
+      category_df[[category_col]] <- ifelse(category_df[[category_col]] %in% names(icd_list), 
+                                            unname(icd_list[category_df[[category_col]]]), 
+                                            paste0(category_df[[category_col]], " (not in ICD list)"))
+    }
+    
+    if (category_col == "CCSR Category") {
+      category_df[[category_col]] <- ifelse(category_df[[category_col]] %in% names(ccsr_list), 
+                                            unname(ccsr_list[category_df[[category_col]]]), 
+                                            paste0(category_df[[category_col]], " (not in CCSR list)"))
+    }
+    
+    # Create sparklines with valueSpots
+    sparkline_html <- category_df[, {
+      values <- if (selected$normalize == 'count') N else Percent
+      value_spots_named <- setNames(as.list(color), values)
+      
+      tooltip_fmt <- if (selected$normalize == 'count') {
+        '<b>N:</b> {{y}} <br> <b>Date:</b> {{x:dates}}'
+      } else {
+        '<b>Percent:</b> {{y}} <br> <b>Date:</b> {{x:dates}}'
+      }
+      
+      .(Sparkline = spk_chr(
+        values, 
+        type = 'line', 
+        width = '80px', 
+        fillColor = FALSE, 
+        defaultPixelsPerValue = 5, 
+        spotColor = FALSE, 
+        minSpotColor = FALSE, 
+        maxSpotColor = FALSE, 
+        spotRadius = 4, 
+        valueSpots = value_spots_named, 
+        highlightSpotColor = NULL, 
+        highlightLineColor = NULL, 
+        lineWidth = 2, 
+        tooltipFormat = tooltip_fmt, 
+        tooltipValueLookups = list(dates = tail(all_dates, 7))
+      ))
+    }, by = category_col]
+    
+    if (selected$normalize == 'count') {
+      sparkline_html = cbind(sparkline_html, "N (last day)" = category_df_list[[2]])
+    } else {
+      sparkline_html = cbind(sparkline_html, "Percent (last day)" = category_df_list[[2]])
+    }
+    
+    if (selected$method == 'gauss') {
+      sparkline_html = cbind(sparkline_html, "p (last day)" = category_df_list[[3]])
+    } else {
+      sparkline_html = cbind(sparkline_html, "Percentile (last day)" = category_df_list[[3]])
+    }
+    
+    sparkline_html = merge(sparkline_html, category_df %>%
+                             filter(color == "red") %>%
+                             count(!!sym(category_col)) %>%
+                             full_join(setNames(data.frame(unique(category_df[[category_col]])), category_col), by = category_col) %>%
+                             mutate(`# Alerts` = ifelse(is.na(n), 0, n)) %>%
+                             select(-n),
+                           sort = FALSE)
+    
+    return(sparkline_html)
+  }
+  
+  # Reactive for processing combined_df with sparklines
   processed_combined_df <- reactive({
     req(master$df)
     normalize <- sideBarInput()$selected$normalize
     method <- sideBarInput()$selected$method
     
     if (!is.null(c(p_dfs$subc, p_dfs$ccddp, p_dfs$dd, p_dfs$ccsr))) {
-      # SubCategory_flat
-      subc_table <- p_dfs$subc
-      if (!is.null(subc_table)) {
-        colnames(subc_table)[1] <- "Sub-syndrome"
-      }
+      # Generate sparklines
+      dd_table <- if (!is.null(p_dfs$dd[[1]])) category_sparkline_table(p_dfs$dd, master$all_dates, sideBarInput()$selected, icd_list=master$icd_list) else NULL
+      subc_table <- if (!is.null(p_dfs$subc[[1]])) category_sparkline_table(p_dfs$subc, master$all_dates, sideBarInput()$selected) else NULL
+      ccsr_table <- if (!is.null(p_dfs$ccsr[[1]])) category_sparkline_table(p_dfs$ccsr, master$all_dates, sideBarInput()$selected, ccsr_list=master$ccsr_list) else NULL
+      ccdd_table <- if (!is.null(p_dfs$ccdd[[1]])) category_sparkline_table(p_dfs$ccdd, master$all_dates, sideBarInput()$selected) else NULL
       
-      # CC&DDCategory_flat
-      ccdd_table <- p_dfs$ccdd
-      if (!is.null(ccdd_table)) {
-        colnames(ccdd_table)[1] <- "CCDD Category"
-      }
-      
-      dd_table <- p_dfs$dd
-      # DischargeDiagnosis
-      if (!is.null(dd_table)) {
-        ICDDiagnosis <- ifelse(dd_table$C_DiagnosisCode_ICD10_Flat %in% names(master$icd_list), 
-                               paste0(dd_table$C_DiagnosisCode_ICD10_Flat, ": ", 
-                                      unname(master$icd_list[dd_table$C_DiagnosisCode_ICD10_Flat])), 
-                               paste0(dd_table$C_DiagnosisCode_ICD10_Flat, " (not in ICD list)"))
-        
-        dd_table <- dd_table[, !(names(dd_table) %in% "C_DiagnosisCode_ICD10_Flat")]
-        dd_table <- cbind(ICDDiagnosis, dd_table)
-        colnames(dd_table)[1] <- "ICD Diagnosis"
-      }
-      
-      ccsr_table <- p_dfs$ccsr
-      # CCSR
-      if (!is.null(ccsr_table)) {
-        CCSR <- ifelse(ccsr_table$ICD_CCSR_flat %in% names(master$ccsr_list), 
-                       paste0(ccsr_table$ICD_CCSR_flat, ": ",
-                              unname(master$ccsr_list[ccsr_table$ICD_CCSR_flat])), 
-                       paste0(ccsr_table$ICD_CCSR_flat, " (not in CCSR list)"))
-        ccsr_table <- ccsr_table[, !(names(ccsr_table) %in% "ICD_CCSR_flat")]
-        ccsr_table <- cbind(CCSR, ccsr_table)
-        colnames(ccsr_table)[1] <- "CCSR Category"
-      }
-      
-      combined_df <- list(
+      # Assign Source Field
+      tables_list <- list(
         if (!is.null(dd_table)) dd_table %>% mutate("Source Field" = "ICD Diagnosis") else NULL,
         if (!is.null(ccsr_table)) ccsr_table %>% mutate("Source Field" = "CCSR Category") else NULL,
         if (!is.null(subc_table)) subc_table %>% mutate("Source Field" = "Sub-syndrome") else NULL,
@@ -422,40 +572,37 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
         purrr::compact() %>%
         bind_rows()
       
-      existing_columns <- intersect(c("ICD Diagnosis", "CCSR Category", "Sub-syndrome", "CCDD Category"), names(combined_df))
+      # Dynamically select existing columns
+      existing_columns <- intersect(c("ICD Diagnosis", "CCSR Category", "Sub-syndrome", "CCDD Category"), names(tables_list))
       
       if (length(existing_columns) > 0) {
-        # Dynamically construct the columns to select
         columns_to_select <- c(
           "Source Field",
           "Syndromic Category",
-          "p",
-          if (normalize == "count") "N" else "Percent",
-          if (normalize == "percent") "N"
+          "Sparkline",
+          if (normalize == "count") "N (last day)" else "Percent (last day)",
+          if (method == "gauss") "p (last day)" else "Percentile (last day)",
+          "# Alerts"
         )
         
-        combined_df <- combined_df %>%
+        combined_df <- tables_list %>%
           pivot_longer(
             cols = all_of(existing_columns),
-            names_to = "variable", 
+            names_to = "variable",
             values_to = "Syndromic Category",
             values_drop_na = TRUE
           ) %>%
           filter(!`Syndromic Category` %in% c("none", "Unmapped (not in CCSR list)")) %>%
           select(all_of(columns_to_select)) %>%
-          arrange(p) # Ensure `p` is treated as a column name
+          arrange(`p (last day)`)
       } else {
         combined_df <- NULL
       }
       
-      # Assign column names dynamically based on method
-      if (method == 'gauss') {
-        colnames(combined_df)[3] <- "p (Normal)"
-      } else {
-        colnames(combined_df)[3] <- "p (Percentile)"
+      # Convert Source Field to factor
+      if (!is.null(combined_df)) {
+        combined_df[['Source Field']] <- as.factor(combined_df[['Source Field']])
       }
-      
-      combined_df[['Source Field']] <- as.factor(combined_df[['Source Field']])
       
       combined_df  # Return the processed combined_df
     } else {
@@ -463,7 +610,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
     }
   })
   
-  # Reactive for creating the datatable using processed_combined_df
+  # Reactive for creating the datatable with sparklines
   combined_table <- reactive({
     req(master$df)
     normalize <- sideBarInput()$selected$normalize
@@ -471,33 +618,27 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
     combined_df <- processed_combined_df()
     
     if (is.null(combined_df)) {
-      method_col <- ifelse(method == 'gauss', 'p', 'Percentile')
-      normalize_col <- ifelse(normalize == 'count', 'N', 'Percent')
+      method_col <- ifelse(method == 'gauss', 'p (last day)', 'Percentile (last day)')
+      normalize_col <- ifelse(normalize == 'count', 'N (last day)', 'Percent (last day)')
       combined_df <- setNames(
-        data.frame(`Source Field` = character(0), `Syndromic Category` = character(0), numeric(0), numeric(0)),
-        c('Source Field', 'Syndromic Category', method_col, normalize_col)
+        data.frame(`Source Field` = character(0), `Syndromic Category` = character(0), 
+                   Sparkline = character(0), numeric(0), numeric(0), numeric(0)),
+        c('Source Field', 'Syndromic Category', 'Sparkline', method_col, normalize_col, '# Alerts')
       )
       return(datatable(combined_df))
     }
     
     # Column definitions
     baseColDefs <- list(
-      list(searchable = TRUE,
-           filter = 'select',
-           targets = 0,
-           render = DT::JS(
-             "function(data, type, row, meta) {",
-             "return type === 'display' && data.length > 55 ?",
-             "'<span title=\"' + data + '\">' + data.substr(0, 55) + '...</span>' : data;",
-             "}")
-      ),
-      list(searchable = TRUE, targets = c(1)),
-      list(searchable = FALSE, targets = c(2,3))
+      list(searchable = TRUE, filter = 'select', targets = 0),
+      list(searchable = TRUE, targets = 1),
+      list(searchable = FALSE, targets = c(3, 4, 5)), # p-value, percentage, alerts non-searchable
+      list(targets = 2, className = 'dt-center') # Center-align sparkline
     )
     
     if (normalize == "percent") {
       percentColumnDef = list(
-        targets = 3,
+        targets = 4,
         render = DT::JS(
           "function(data, type, row, meta) {",
           "  if(type === 'display'){",
@@ -511,19 +652,27 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       baseColDefs = append(baseColDefs, list(percentColumnDef))
     }
     
-    # Create the datatable
-    dt = datatable(combined_df, selection = 'single', filter = 'top',
-              options = list(dom = 'ftip', columnDefs = baseColDefs),
-              rownames = FALSE)
+    staticRender_cb <- JS('function(){debugger;HTMLWidgets.staticRender();}')
+    
+    dt <- datatable(combined_df, selection = 'single', filter = 'top',
+                    escape = FALSE, rownames = FALSE,
+                    options = list(
+                      dom = 'ftip',
+                      columnDefs = baseColDefs,
+                      drawCallback = staticRender_cb  # This ensures sparklines are re-rendered on table redraw
+                    ))
     
     # Define the column to format based on method
-    column_to_format <- if (method == 'gauss') 'p (Normal)' else 'p (Percentile)'
+    column_to_format <- if (method == 'gauss') 'p (last day)' else 'Percentile (last day)'
     
-    dt = dt %>% formatStyle(
-        column_to_format,
-        backgroundColor = styleInterval(c(0.01, 0.05), 
-                                        c('rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 0, 255, 0.5)'))
+    dt <- dt %>% formatStyle(
+      column_to_format,
+      backgroundColor = styleInterval(
+        c(0.01, 0.05),
+        c('rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 0, 255, 0.5)')
       )
+    )
+    
     dt
   })
   
@@ -674,24 +823,32 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
   
   # Observe for AgeGroup table clicks
   observeEvent(input$age_table_rows_selected, {
-    new_selection <- p_dfs$age[input$age_table_rows_selected,1]
-    if (identical(new_selection, filters$age) || nrow(p_dfs$age)==1) {
-      return() # If the selection is the same, don't add to history
+    if (!is.null(input$age_table_rows_selected)) {
+      new_selection <- as.character(p_dfs$age[[1]][input$age_table_rows_selected,1])
+      if (identical(new_selection, filters$age) || nrow(p_dfs$age[[1]])==1) {
+        return() # If the selection is the same, don't add to history
+      }
+      filters$age <- new_selection
+      appendSelectionHistory(selection_history, filters)
+      filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
+    } else {
+      filters$age <- NULL
     }
-    filters$age <- new_selection
-    appendSelectionHistory(selection_history, filters)
-    filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
   })
   
   # Observe for Sex table clicks
   observeEvent(input$sex_table_rows_selected, {
-    new_selection <- p_dfs$sex[input$sex_table_rows_selected,1]
-    if (identical(new_selection, filters$sex) || nrow(p_dfs$sex)==1) {
-      return() # If the selection is the same, don't add to history
+    if (!is.null(input$sex_table_rows_selected)) {
+      new_selection <- as.character(p_dfs$sex[[1]][input$sex_table_rows_selected,1])
+      if (identical(new_selection, filters$sex) || nrow(p_dfs$sex[[1]])==1) {
+        return() # If the selection is the same, don't add to history
+      }
+      filters$sex <- new_selection
+      appendSelectionHistory(selection_history, filters)
+      filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
+    } else {
+      filters$sex <- NULL
     }
-    filters$sex <- new_selection
-    appendSelectionHistory(selection_history, filters)
-    filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
   })
   
   # Observe for combined syndromic category table clicks
@@ -700,7 +857,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
     source_field_nice <- p_dfs$combined[row_index,1]
     new_selection <- p_dfs$combined[row_index,2][[1,1]]
     if (source_field_nice == "Sub-syndrome") {
-      if (identical(new_selection, filters$subc)) {
+      if (identical(new_selection, filters$subc) || nrow(p_dfs$subc[[1]])==1) {
         return() # If the selection is the same, don't add to history
       } else {
         filters$subc <- new_selection
@@ -708,9 +865,8 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
         filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
       }
     } else if (source_field_nice == "ICD Diagnosis") {
-      new_selection = substring(new_selection, 6)
       new_selection = names(master$icd_list)[which(master$icd_list == new_selection)]
-      if (identical(new_selection, filters$dd)) {
+      if (identical(new_selection, filters$dd) || nrow(p_dfs$dd[[1]])==1) {
         return() # If the selection is the same, don't add to history
       } else {
         filters$dd <- new_selection
@@ -718,9 +874,8 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
         filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
       }
     } else if (source_field_nice == "CCSR Category") {
-      new_selection = substring(new_selection, 9)
       new_selection = names(master$ccsr_list)[which(master$ccsr_list == new_selection)]
-      if (identical(new_selection, filters$ccsr)) {
+      if (identical(new_selection, filters$ccsr) || nrow(p_dfs$ccsr[[1]])==1) {
         return() # If the selection is the same, don't add to history
       } else {
         filters$ccsr <- new_selection
@@ -728,7 +883,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
         filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
       }
     } else if (source_field_nice == "CCDD Category") {
-      if (identical(new_selection, filters$ccdd)) {
+      if (identical(new_selection, filters$ccdd) || nrow(p_dfs$ccdd[[1]])==1) {
         return() # If the selection is the same, don't add to history
       } else {
         filters$ccdd <- new_selection

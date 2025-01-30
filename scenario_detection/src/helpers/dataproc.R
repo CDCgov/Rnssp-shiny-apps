@@ -160,10 +160,9 @@ readin_and_process_master_df <- function(state, date) {
   withProgress(message = "Reading in and processing data:", value = 0, {
     incProgress(0.0, detail = "Reading in data (this may take a few seconds)...")
     master <- myProfile$get_api_data(url, fromCSV =TRUE)
-    incProgress(0.14, detail = "Creating Age groups...")
-    #master = createAgeGroup(master)
+    master$Date = as.Date(master$Date, format = "%m/%d/%Y")
     incProgress(0.14, detail = "Parsing SubCategory...")
-    master = process_and_overwrite_category_column(master, "SubCategory_flat") 
+    master = process_and_overwrite_category_column(master, "SubCategory_flat")
     incProgress(0.14, detail = "Parsing CCDD Category...")
     master = process_and_overwrite_category_column(master, "CCDDCategory_flat")
     incProgress(0.14, detail = "Removing lower CCDD Category versions...")
@@ -382,22 +381,98 @@ p_value_pipeline <- function(df, all_dates, column_name, test_date, normalize,
   return(p_df)
 }
 
+df_pipeline <- function(df, all_dates, column_name, normalize, method, min_records_baseline, min_records_testdate, filter=FALSE) {
+  
+  # Crosstab
+  feature_date_df <- create_crosstab_dataframe(df, column_name, all_dates)
+  
+  # Normalize
+  if (normalize == "percent") {
+    last_count_col = feature_date_df[, ncol(feature_date_df)]
+    names(last_count_col) <- rownames(feature_date_df)
+    feature_date_df <- normalize_df(df, feature_date_df, min_records_baseline, min_records_testdate, filter)
+    last_count_col <- last_count_col[rownames(feature_date_df)]
+  } else if (filter == TRUE) {
+    # Apply minimum count baseline filter
+    feature_date_df <- filter_feature_date_df_baseline(feature_date_df, min_records_baseline)
+    # Apply minimum count test_date filter
+    feature_date_df <- filter_feature_date_df_test_date(feature_date_df, min_records_testdate)
+  }
+  
+  concat_df = data.frame()
+  for (date in tail(all_dates, 7)) {
+    temp_df = drop_guardband_dates(feature_date_df, as.Date(date))
+    if (method == 'gauss') {
+      temp_df = compute_p_values(temp_df, date, column_name, normalize)
+    } else {
+      temp_df = compute_percentiles(temp_df, date, column_name, normalize)
+    }
+    
+    if (!is.null(temp_df)) {
+      concat_df = rbind(concat_df, temp_df)
+    }
+  }
+  
+  if (nrow(concat_df)==0) {
+    return(list(NULL, NULL, NULL))
+  } else {
+    if (column_name %in% c('SubCategory_flat', 'CCDDCategory_flat', 'C_DiagnosisCode_ICD10_Flat')) {
+      concat_df = concat_df[concat_df[[column_name]] != "none",]
+      temp_df = temp_df[temp_df[[column_name]] != "none",]
+    }
+    if (column_name == 'ICD_CCSR_flat') {
+      concat_df = concat_df[concat_df[[column_name]] != "Unmapped",]
+      temp_df = temp_df[temp_df[[column_name]] != "Unmapped",]
+    }
+    
+    if (normalize == 'count') {
+      Ns = data.table(temp_df)$N
+    } else {
+      Percents <- paste0(data.table(temp_df)$Percent, "%")
+    }
+    if (method == 'gauss') {
+      ps = data.table(temp_df)$p
+      concat_df <- concat_df %>%
+        mutate(color = cut(p, breaks = c(-Inf, 0.01, 0.05, Inf), labels = c("red", "yellow", "blue")))
+    } else {
+      Percentiles = data.table(temp_df)$Percentile
+      concat_df <- concat_df %>%
+        mutate(color =  cut(Percentile, breaks = c(-Inf, 95, 99, Inf), labels = c("blue", "yellow", "red")))
+    }
+    
+    # Return the correct set of values as a list
+    if (normalize == 'count') {
+      if (method == 'gauss') {
+        return(list(as.data.table(concat_df), Ns, ps))
+      } else {
+        return(list(as.data.table(concat_df), Ns, Percentiles))
+      }
+    } else {
+      if (method == 'gauss') {
+        return(list(as.data.table(concat_df), Percents, ps))
+      } else {
+        return(list(as.data.table(concat_df), Percents, Percentiles))
+      }
+    }
+  }
+}
+
 p_loop_over_all_features <- function(p_dfs, df, all_dates, normalize, method, min_records_baseline, min_records_testdate) {
   withProgress(message = ifelse(method=='gauss', "Computing p-values:", "Computing percentiles:"), value = 0, {
     incProgress(0, detail = 'Hospital Region')
     p_dfs$region <- p_value_pipeline(df, all_dates, 'HospitalRegion', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate)
     incProgress(0.14, detail = 'Age Group')
-    p_dfs$age <- p_value_pipeline(df, all_dates, 'AgeGroup', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate)
+    p_dfs$age <- df_pipeline(df, all_dates, 'AgeGroup', normalize, method, min_records_baseline, min_records_testdate)
     incProgress(0.14, detail = 'Sex')
-    p_dfs$sex <- p_value_pipeline(df, all_dates, 'Sex', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate)
+    p_dfs$sex <- df_pipeline(df, all_dates, 'Sex', normalize, method, min_records_baseline, min_records_testdate)
     incProgress(0.14, detail = 'SubCategory')
-    p_dfs$subc <- p_value_pipeline(df, all_dates, 'SubCategory_flat', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
+    p_dfs$subc <- df_pipeline(df, all_dates, 'SubCategory_flat', normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
     incProgress(0.14, detail = 'CCDD Category')
-    p_dfs$ccdd <- p_value_pipeline(df, all_dates, 'CCDDCategory_flat', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
+    p_dfs$ccdd <- df_pipeline(df, all_dates, 'CCDDCategory_flat', normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
     incProgress(0.14, detail = 'ICD Diagnosis')
-    p_dfs$dd <- p_value_pipeline(df, all_dates, 'C_DiagnosisCode_ICD10_Flat', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
+    p_dfs$dd <- df_pipeline(df, all_dates, 'C_DiagnosisCode_ICD10_Flat', normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
     incProgress(0.15, detail = 'CCSR Category')
-    p_dfs$ccsr <- p_value_pipeline(df, all_dates, 'ICD_CCSR_flat', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
+    p_dfs$ccsr <- df_pipeline(df, all_dates, 'ICD_CCSR_flat', normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
     incProgress(0.15, detail = "Completed!")
   })
 }
@@ -405,13 +480,13 @@ p_loop_over_all_features <- function(p_dfs, df, all_dates, normalize, method, mi
 p_loop_over_diagnostic_features <- function(p_dfs, df, all_dates, normalize, method, min_records_baseline, min_records_testdate) {
   withProgress(message = ifelse(method=='gauss', "Computing p-values:", "Computing percentiles:"), value = 0, {
     incProgress(0.14, detail = 'SubCategory')
-    p_dfs$subc <- p_value_pipeline(df, all_dates, 'SubCategory_flat', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
+    p_dfs$subc <- df_pipeline(df, all_dates, 'SubCategory_flat', normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
     incProgress(0.14, detail = 'CCDD Category')
-    p_dfs$ccdd <- p_value_pipeline(df, all_dates, 'CCDDCategory_flat', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
+    p_dfs$ccdd <- df_pipeline(df, all_dates, 'CCDDCategory_flat', normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
     incProgress(0.14, detail = 'ICD Diagnosis')
-    p_dfs$dd <- p_value_pipeline(df, all_dates, 'C_DiagnosisCode_ICD10_Flat', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
+    p_dfs$dd <- df_pipeline(df, all_dates, 'C_DiagnosisCode_ICD10_Flat', normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
     incProgress(0.15, detail = 'CCSR Category')
-    p_dfs$ccsr <- p_value_pipeline(df, all_dates, 'ICD_CCSR_flat', all_dates[length(all_dates)], normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
+    p_dfs$ccsr <- df_pipeline(df, all_dates, 'ICD_CCSR_flat', normalize, method, min_records_baseline, min_records_testdate, filter=TRUE)
     incProgress(0.15, detail = "Completed!")
   })
 }
