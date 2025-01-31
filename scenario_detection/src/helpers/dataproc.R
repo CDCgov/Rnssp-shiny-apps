@@ -77,17 +77,19 @@ remove_older_CCDD_versions <- function(CCDD_column) {
 process_and_overwrite_codes_column <- function(df, column_name) {
   # Extract the codes vector from the data frame
   codes_vector <- df[[column_name]]
-  # Separate NA and non-NA values
-  na_indices <- is.na(codes_vector)
-  non_na_indices <- !is.na(codes_vector)
+  # Identify NA values and those already set as "none"
+  na_indices <- is.na(codes_vector) | codes_vector == "none"
+  non_na_indices <- !na_indices
+  # Extract non-NA values
   non_na_values <- codes_vector[non_na_indices]
-  # Extract all unique ICD Diagnosis elements from text, replacing NAs with 'none'
+  # Extract all unique ICD Diagnosis elements from text
   processed_codes <- str_extract_all(non_na_values, "[A-Z][0-9]{2}")
   processed_codes <- map(processed_codes, ~unique(.x))
-  processed_codes[is.na(processed_codes)] = "none"
+  # Replace any NA values in processed_codes with "none"
+  processed_codes <- map_if(processed_codes, is.null, ~"none")
   # Reinsert processed codes back into the original vector
   codes_vector[non_na_indices] <- processed_codes
-  codes_vector[na_indices] <- 'none'
+  codes_vector[na_indices] <- "none"
   # Overwrite the column in the data frame with processed codes
   df[[column_name]] <- codes_vector
   return(df)
@@ -144,10 +146,10 @@ fips_for_url <- function(state) {
 # Read in data details from API and process/parse for assignment to master df
 readin_and_process_master_df <- function(state, date) {
   url <-paste0("https://essence.syndromicsurveillance.org/nssp_essence/api/",
-               "dataDetails/csv?querySystem=detection&geography=",
+               "dataDetails/csv?geography=",
                as.character(state_helper[state_helper$state_name == state,]$state_abbr),
                "&datasource=va_hosp&medicalGroupingSystem=essencesyndromes",
-               "&userId=1&percentParam=noPercent&aqtTarget=TimeSeries",
+               "&userId=1&percentParam=noPercent&aqtTarget=DataDetails",
                "&geographySystem=hospitalstate&detector=probrepswitch",
                "&timeResolution=daily&startDate=",
                format(date %m-% days(38), "%d%b%Y"), "&endDate=",
