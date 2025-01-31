@@ -55,6 +55,7 @@ contracts no. 75D30120C07643, 75D30122C15442, 75D30124C19958
 library(htmltools)
 library(knitr)
 library(kableExtra)
+library(sparkline)
 knitr::opts_chunk$set(echo = TRUE)
 
 normalize_conversion_list <- setNames(as.list(c("Count", "Proportion(%)")), c("count", "percent"))

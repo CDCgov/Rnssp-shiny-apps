@@ -77,17 +77,19 @@ remove_older_CCDD_versions <- function(CCDD_column) {
 process_and_overwrite_codes_column <- function(df, column_name) {
   # Extract the codes vector from the data frame
   codes_vector <- df[[column_name]]
-  # Separate NA and non-NA values
-  na_indices <- is.na(codes_vector)
-  non_na_indices <- !is.na(codes_vector)
+  # Identify NA values and those already set as "none"
+  na_indices <- is.na(codes_vector) | codes_vector == "none"
+  non_na_indices <- !na_indices
+  # Extract non-NA values
   non_na_values <- codes_vector[non_na_indices]
-  # Extract all unique ICD Diagnosis elements from text, replacing NAs with 'none'
+  # Extract all unique ICD Diagnosis elements from text
   processed_codes <- str_extract_all(non_na_values, "[A-Z][0-9]{2}")
   processed_codes <- map(processed_codes, ~unique(.x))
-  processed_codes[is.na(processed_codes)] = "none"
+  # Replace any NA values in processed_codes with "none"
+  processed_codes <- map_if(processed_codes, is.null, ~"none")
   # Reinsert processed codes back into the original vector
   codes_vector[non_na_indices] <- processed_codes
-  codes_vector[na_indices] <- 'none'
+  codes_vector[na_indices] <- "none"
   # Overwrite the column in the data frame with processed codes
   df[[column_name]] <- codes_vector
   return(df)
