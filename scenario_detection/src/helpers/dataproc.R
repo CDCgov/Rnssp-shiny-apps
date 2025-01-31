@@ -159,6 +159,7 @@ readin_and_process_master_df <- function(state, date) {
                "&field=CCDDCategory_flat&field=C_DiagnosisCode_ICD10_Flat",
                "&field=FacilityCountyFIPS&field=ICD_CCSR_flat",
                "&field=ChiefComplaintParsed")
+  print(url)
   withProgress(message = "Reading in and processing data:", value = 0, {
     incProgress(0.0, detail = "Reading in data (this may take a few seconds)...")
     master <- myProfile$get_api_data(url, fromCSV =TRUE)

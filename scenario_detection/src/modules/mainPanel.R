@@ -486,13 +486,13 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
     
     if (category_col == "ICD Diagnosis") {
       category_df[[category_col]] <- ifelse(category_df[[category_col]] %in% names(icd_list), 
-                                            unname(icd_list[category_df[[category_col]]]), 
+                                            paste0(category_df[[category_col]], ": ", unname(icd_list[category_df[[category_col]]])),
                                             paste0(category_df[[category_col]], " (not in ICD list)"))
     }
     
     if (category_col == "CCSR Category") {
       category_df[[category_col]] <- ifelse(category_df[[category_col]] %in% names(ccsr_list), 
-                                            unname(ccsr_list[category_df[[category_col]]]), 
+                                            paste0(category_df[[category_col]], ": ", unname(ccsr_list[category_df[[category_col]]])),
                                             paste0(category_df[[category_col]], " (not in CCSR list)"))
     }
     
@@ -865,7 +865,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
         filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
       }
     } else if (source_field_nice == "ICD Diagnosis") {
-      new_selection = names(master$icd_list)[which(master$icd_list == new_selection)]
+      new_selection = names(master$icd_list)[which(master$icd_list == sub("^[^:]*: ?", "", new_selection))]
       if (identical(new_selection, filters$dd) || nrow(p_dfs$dd[[1]])==1) {
         return() # If the selection is the same, don't add to history
       } else {
@@ -874,7 +874,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
         filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
       }
     } else if (source_field_nice == "CCSR Category") {
-      new_selection = names(master$ccsr_list)[which(master$ccsr_list == new_selection)]
+      new_selection = names(master$ccsr_list)[which(master$ccsr_list == sub("^[^:]*: ?", "", new_selection))]
       if (identical(new_selection, filters$ccsr) || nrow(p_dfs$ccsr[[1]])==1) {
         return() # If the selection is the same, don't add to history
       } else {
