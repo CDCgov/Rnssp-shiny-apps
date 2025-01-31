@@ -29,7 +29,7 @@ appUI <- function() {
           });
       </script>
       "
-      )           
+      )          
     ),
     theme = shinytheme("cosmo"),
     navbarPage(

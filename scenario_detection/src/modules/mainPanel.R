@@ -297,13 +297,13 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       .(Sparkline = spk_chr(
         values, 
         type = 'line', 
-        width = '80px', 
+        width = '100px',
         fillColor = FALSE, 
         defaultPixelsPerValue = 5, 
         spotColor = FALSE, 
         minSpotColor = FALSE, 
         maxSpotColor = FALSE, 
-        spotRadius = 4, 
+        spotRadius = 3, 
         valueSpots = value_spots_named, 
         highlightSpotColor = NULL, 
         highlightLineColor = NULL, 
@@ -384,13 +384,13 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       .(Sparkline = spk_chr(
         values, 
         type = 'line', 
-        width = '80px', 
+        width = '100px',
         fillColor = FALSE, 
         defaultPixelsPerValue = 5, 
         spotColor = FALSE, 
         minSpotColor = FALSE, 
         maxSpotColor = FALSE, 
-        spotRadius = 4, 
+        spotRadius = 3, 
         valueSpots = value_spots_named, 
         highlightSpotColor = NULL, 
         highlightLineColor = NULL, 
@@ -481,13 +481,13 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       .(Sparkline = spk_chr(
         values, 
         type = 'line', 
-        width = '80px', 
+        width = '100px',
         fillColor = FALSE, 
         defaultPixelsPerValue = 5, 
         spotColor = FALSE, 
         minSpotColor = FALSE, 
         maxSpotColor = FALSE, 
-        spotRadius = 4, 
+        spotRadius = 3, 
         valueSpots = value_spots_named, 
         highlightSpotColor = NULL, 
         highlightLineColor = NULL, 
@@ -549,11 +549,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
           "Sparkline",
           if (normalize == "count") "N (last day)" else "Percent (last day)",
           "p (last day)",
-          "# Alerts"
-        )
-        
-        print(columns_to_select)
-        print(tables_list)
+          "# Alerts")
         
         combined_df <- tables_list %>%
           pivot_longer(
