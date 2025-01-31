@@ -319,11 +319,8 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       sparkline_html = cbind(sparkline_html, "Percent (last day)" = age_df_list[[2]])
     }
     
-    if (selected$method == 'gauss') {
-      sparkline_html = cbind(sparkline_html, "p (last day)" = age_df_list[[3]])
-    } else {
-      sparkline_html = cbind(sparkline_html, "Percentile (last day)" = age_df_list[[3]])
-    }
+    sparkline_html = cbind(sparkline_html, "p (last day)" = age_df_list[[3]])
+
     
     sparkline_html = merge(sparkline_html, age_df %>%
                              filter(color == "red") %>%
@@ -354,26 +351,15 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       options = list(drawCallback = staticRender_cb)
     )
     
-    # Apply formatStyle based on the selected method
-    if (method == 'gauss') {
-      dt <- dt %>%
-        formatStyle(
-          'p (last day)',
-          backgroundColor = styleInterval(
-            c(0.01, 0.05),
-            c('rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 0, 255, 0.5)')
-          )
+    # Apply formatStyle
+    dt <- dt %>%
+      formatStyle(
+        'p (last day)',
+        backgroundColor = styleInterval(
+          c(0.01, 0.05),
+          c('rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 0, 255, 0.5)')
         )
-    } else {
-      dt <- dt %>%
-        formatStyle(
-          'Percentile (last day)',
-          backgroundColor = styleInterval(
-            c(95, 99),
-            c('rgba(0, 0, 255, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(255, 0, 0, 0.5)')
-          )
-        )
-    }
+      )
     
     # Return the datatable
     dt
@@ -420,11 +406,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       sparkline_html = cbind(sparkline_html, "Percent (last day)" = sex_df_list[[2]])
     }
     
-    if (selected$method == 'gauss') {
-      sparkline_html = cbind(sparkline_html, "p (last day)" = sex_df_list[[3]])
-    } else {
-      sparkline_html = cbind(sparkline_html, "Percentile (last day)" = sex_df_list[[3]])
-    }
+    sparkline_html = cbind(sparkline_html, "p (last day)" = sex_df_list[[3]])
     
     sparkline_html = merge(sparkline_html, sex_df %>%
                              filter(color == "red") %>%
@@ -453,26 +435,15 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       options = list(drawCallback = staticRender_cb)
     )
     
-    # Apply formatStyle based on the selected method
-    if (method == 'gauss') {
-      dt <- dt %>%
-        formatStyle(
-          'p (last day)',
-          backgroundColor = styleInterval(
-            c(0.01, 0.05),
-            c('rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 0, 255, 0.5)')
-          )
+    # Apply formatStyle
+    dt <- dt %>%
+      formatStyle(
+        'p (last day)',
+        backgroundColor = styleInterval(
+          c(0.01, 0.05),
+          c('rgba(255, 0, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(0, 0, 255, 0.5)')
         )
-    } else {
-      dt <- dt %>%
-        formatStyle(
-          'Percentile (last day)',
-          backgroundColor = styleInterval(
-            c(95, 99),
-            c('rgba(0, 0, 255, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(255, 0, 0, 0.5)')
-          )
-        )
-    }
+      )
     
     # Return the datatable
     dt
@@ -532,11 +503,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
       sparkline_html = cbind(sparkline_html, "Percent (last day)" = category_df_list[[2]])
     }
     
-    if (selected$method == 'gauss') {
-      sparkline_html = cbind(sparkline_html, "p (last day)" = category_df_list[[3]])
-    } else {
-      sparkline_html = cbind(sparkline_html, "Percentile (last day)" = category_df_list[[3]])
-    }
+    sparkline_html = cbind(sparkline_html, "p (last day)" = category_df_list[[3]])
     
     sparkline_html = merge(sparkline_html, category_df %>%
                              filter(color == "red") %>%
@@ -581,9 +548,12 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
           "Syndromic Category",
           "Sparkline",
           if (normalize == "count") "N (last day)" else "Percent (last day)",
-          if (method == "gauss") "p (last day)" else "Percentile (last day)",
+          "p (last day)",
           "# Alerts"
         )
+        
+        print(columns_to_select)
+        print(tables_list)
         
         combined_df <- tables_list %>%
           pivot_longer(
@@ -618,7 +588,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
     combined_df <- processed_combined_df()
     
     if (is.null(combined_df)) {
-      method_col <- ifelse(method == 'gauss', 'p (last day)', 'Percentile (last day)')
+      method_col <- 'p (last day)'
       normalize_col <- ifelse(normalize == 'count', 'N (last day)', 'Percent (last day)')
       combined_df <- setNames(
         data.frame(`Source Field` = character(0), `Syndromic Category` = character(0), 
@@ -663,7 +633,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
                     ))
     
     # Define the column to format based on method
-    column_to_format <- if (method == 'gauss') 'p (last day)' else 'Percentile (last day)'
+    column_to_format <- 'p (last day)'
     
     dt <- dt %>% formatStyle(
       column_to_format,

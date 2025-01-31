@@ -432,29 +432,15 @@ df_pipeline <- function(df, all_dates, column_name, normalize, method, min_recor
     } else {
       Percents <- paste0(data.table(temp_df)$Percent, "%")
     }
-    if (method == 'gauss') {
-      ps = data.table(temp_df)$p
-      concat_df <- concat_df %>%
-        mutate(color = cut(p, breaks = c(-Inf, 0.01, 0.05, Inf), labels = c("red", "yellow", "blue")))
-    } else {
-      Percentiles = data.table(temp_df)$Percentile
-      concat_df <- concat_df %>%
-        mutate(color =  cut(Percentile, breaks = c(-Inf, 95, 99, Inf), labels = c("blue", "yellow", "red")))
-    }
+    ps = data.table(temp_df)$p
+    concat_df <- concat_df %>%
+      mutate(color = cut(p, breaks = c(-Inf, 0.01, 0.05, Inf), labels = c("red", "yellow", "blue")))
     
     # Return the correct set of values as a list
     if (normalize == 'count') {
-      if (method == 'gauss') {
-        return(list(as.data.table(concat_df), Ns, ps))
-      } else {
-        return(list(as.data.table(concat_df), Ns, Percentiles))
-      }
+      return(list(as.data.table(concat_df), Ns, ps))
     } else {
-      if (method == 'gauss') {
-        return(list(as.data.table(concat_df), Percents, ps))
-      } else {
-        return(list(as.data.table(concat_df), Percents, Percentiles))
-      }
+      return(list(as.data.table(concat_df), Percents, ps))
     }
   }
 }
