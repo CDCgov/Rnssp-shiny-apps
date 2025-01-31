@@ -146,10 +146,10 @@ fips_for_url <- function(state) {
 # Read in data details from API and process/parse for assignment to master df
 readin_and_process_master_df <- function(state, date) {
   url <-paste0("https://essence.syndromicsurveillance.org/nssp_essence/api/",
-               "dataDetails/csv?querySystem=detection&geography=",
+               "dataDetails/csv?geography=",
                as.character(state_helper[state_helper$state_name == state,]$state_abbr),
                "&datasource=va_hosp&medicalGroupingSystem=essencesyndromes",
-               "&userId=1&percentParam=noPercent&aqtTarget=TimeSeries",
+               "&userId=1&percentParam=noPercent&aqtTarget=DataDetails",
                "&geographySystem=hospitalstate&detector=probrepswitch",
                "&timeResolution=daily&startDate=",
                format(date %m-% days(38), "%d%b%Y"), "&endDate=",
