@@ -56,6 +56,7 @@ library(htmltools)
 library(knitr)
 library(kableExtra)
 library(sparkline)
+sparkline_dep <- htmlwidgets::getDependency("sparkline", "sparkline")
 knitr::opts_chunk$set(echo = TRUE)
 
 normalize_conversion_list <- setNames(as.list(c("Count", "Proportion(%)")), c("count", "percent"))
@@ -190,11 +191,14 @@ The Alert List Explorer within the Scenario Detection app is intended as an expl
 
 ```{r demographicsout, echo=FALSE, message=FALSE, results='asis'}
 inc_progress(msg = "Adding demographics-stratified alerts...", amnt = 0.25)
-layout_demog <- div(
-  style = "display: flex; justify-content: space-around; margin-left: -25%; margin-right: -25%;",
-  div(style = "width: 32%;", widgets()$region_object()),
-  div(style = "width: 32%;", widgets()$age_object()),
-  div(style = "width: 32%;", widgets()$sex_object())
+layout_demog <- tagList(
+  sparkline_dep,
+  div(
+    style = "display: flex; justify-content: space-around; margin-left: -25%; margin-right: -25%;",
+    div(style = "width: 32%;", widgets()$region_object()),
+    div(style = "width: 32%;", widgets()$age_object()),
+    div(style = "width: 32%;", widgets()$sex_object())
+  )
 )
 
 # Render the layout
