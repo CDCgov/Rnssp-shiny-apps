@@ -776,8 +776,9 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
   )
   
   #-------------------Observes for main panel outputs-----------------------------  
-  # Observe for Region Map clicks
+    # Observe for Region Map clicks
   observeEvent(input$region_map_shape_click, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     new_selection <- selected_state$df_sf[selected_state$df_sf$NAME == input$region_map_shape_click$id,]$HospitalRegion
     if (identical(new_selection, filters$region) || is.na(new_selection)) {
       return() # If the selection is the same, don't add to history
@@ -785,10 +786,12 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
     filters$region <- new_selection
     appendSelectionHistory(selection_history, filters)
     filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
+    removeModal()
   })
   
   # Observe for AgeGroup table clicks
   observeEvent(input$age_table_rows_selected, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     if (!is.null(input$age_table_rows_selected)) {
       new_selection <- as.character(p_dfs$age[[1]][input$age_table_rows_selected,1])
       if (identical(new_selection, filters$age) || nrow(p_dfs$age[[1]])==1) {
@@ -800,10 +803,12 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
     } else {
       filters$age <- NULL
     }
+    removeModal()
   })
   
   # Observe for Sex table clicks
   observeEvent(input$sex_table_rows_selected, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     if (!is.null(input$sex_table_rows_selected)) {
       new_selection <- as.character(p_dfs$sex[[1]][input$sex_table_rows_selected,1])
       if (identical(new_selection, filters$sex) || nrow(p_dfs$sex[[1]])==1) {
@@ -815,10 +820,12 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
     } else {
       filters$sex <- NULL
     }
+    removeModal()
   })
   
   # Observe for combined syndromic category table clicks
   observeEvent(input$combined_table_rows_selected, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     row_index = input$combined_table_rows_selected
     source_field_nice <- p_dfs$combined[row_index,1]
     new_selection <- p_dfs$combined[row_index,2][[1,1]]
@@ -857,6 +864,7 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
         filtered(master, filters, p_dfs, selected_state, sideBarInput()$selected)
       }
     }
+    removeModal()
   })
   
   list(
