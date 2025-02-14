@@ -108,6 +108,7 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
   
   # Roll the selections back to their previous state
   observeEvent(input$backBtn, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     req(length(selection_history$history) > 1)
   
     selection_history$history <- selection_history$history[-length(selection_history$history)]
@@ -124,10 +125,12 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
     updateNumericInput(session, "min_records_baseline", value = filters$min_records_baseline)
     updateNumericInput(session, "min_records_testdate", value = filters$min_records_testdate)
     filtered(master, filters, p_dfs, selected_state, selected)
+    removeModal()
   })
   
   # Observe the reset button click
   observeEvent(input$resetBtn, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     selection_history$history <- list(selection_history$history[[1]])
     first_selections <- selection_history$history[[1]]
     filters$min_records_baseline <- first_selections$MinRecordsBaseline
@@ -142,10 +145,12 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
     updateNumericInput(session, "min_records_baseline", value = filters$min_records_baseline)
     updateNumericInput(session, "min_records_testdate", value = filters$min_records_testdate)
     filtered(master, filters, p_dfs, selected_state, selected)
+    removeModal()
   })
   
   # Observe for baseline record minimum submission
   observeEvent(input$min_records_baseline, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     req(!master_empty())
     
     new_selection <- input$min_records_baseline
@@ -155,10 +160,12 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
     filters$min_records_baseline <- input$min_records_baseline
     appendSelectionHistory(selection_history, filters)
     filtered(master, filters, p_dfs, selected_state, selected, record_number=TRUE)
-  })
+    removeModal()
+  }, ignoreInit = TRUE)
   
   # Observe for baseline record minimum submission
   observeEvent(input$min_records_testdate, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     req(!master_empty())
     
     new_selection <- input$min_records_testdate
@@ -168,10 +175,12 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
     filters$min_records_testdate <- input$min_records_testdate
     appendSelectionHistory(selection_history, filters)
     filtered(master, filters, p_dfs, selected_state, selected, record_number=TRUE)
-  })
+    removeModal()
+  }, ignoreInit = TRUE)
   
   #-------------------------------Load Data event-handler-----------------------
   observeEvent(input$go, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     shinyjs::show("runText")
     shinyjs::toggleState("go", FALSE)
     # Assign selected reactives for plotly title
@@ -243,12 +252,14 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
     }
     shinyjs::toggleState("go", TRUE)
     shinyjs::hide("runText")
+    removeModal()
   })
   
   #------------------------------UI methods/filters event-handlers---------------
   
   # Observe for normalization radio selection
   observeEvent(input$normalize_radio, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     req(master$df)
     selected$normalize = input$normalize_radio
     p_loop_over_all_features(p_dfs, master$filtered_df, master$all_dates, selected$normalize, selected$method, input$min_records_baseline, input$min_records_testdate)
@@ -256,10 +267,12 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
                                                           master$region_fips, by="HospitalRegion"),
                                                selected_state$county_sf[,c("NAME","GEOID","geometry")],
                                                by = c("FacilityCountyFIPS" = "GEOID")))
-  })
+    removeModal()
+  }, ignoreInit = TRUE)
   
   # Observe for method radio selection
   observeEvent(input$method_radio, {
+    showModal(modalDialog("Processing... Please wait", footer = NULL))
     req(master$df)
     selected$method = input$method_radio
     p_loop_over_all_features(p_dfs, master$filtered_df, master$all_dates, selected$normalize, selected$method, input$min_records_baseline, input$min_records_testdate)
@@ -267,7 +280,8 @@ sideBarModule <- function(input, output, session, master, p_dfs, filters, select
                                                           master$region_fips, by="HospitalRegion"),
                                                selected_state$county_sf[,c("NAME","GEOID","geometry")],
                                                by = c("FacilityCountyFIPS" = "GEOID")))
-  })
+    removeModal()
+  }, ignoreInit = TRUE)
   
   # Display current set of selections to the user
   output$selectionText <- renderText({
