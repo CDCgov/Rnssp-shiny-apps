@@ -597,8 +597,8 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
     # Column definitions
     baseColDefs <- list(
       list(searchable = TRUE, filter = 'select', targets = 0),
-      list(searchable = TRUE, targets = 1),
-      list(searchable = FALSE, targets = c(3, 4, 5)), # p-value, percentage, alerts non-searchable
+      list(searchable = TRUE, targets = c(1,3,4,5)),
+      list(searchable = FALSE, targets = 2),
       list(targets = 2, className = 'dt-center') # Center-align sparkline
     )
     
@@ -624,7 +624,11 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
                     escape = FALSE, rownames = FALSE,
                     options = list(
                       dom = 'ftip',
+                      paging = FALSE,  # Disable pagination
                       columnDefs = baseColDefs,
+                      searchCols = list(
+                        NULL, NULL, NULL, NULL, list(search = "0.000 ... 0.010"), NULL
+                      ),
                       drawCallback = staticRender_cb  # This ensures sparklines are re-rendered on table redraw
                     ))
     
