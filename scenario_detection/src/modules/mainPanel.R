@@ -625,6 +625,8 @@ mainPanelModule <- function(input, output, session, sideBarInput, master, p_dfs,
                     options = list(
                       dom = 'ftip',
                       paging = FALSE,  # Disable pagination
+                      scrollY = "300px",  # Set a fixed height for approximately 10 rows
+                      scrollCollapse = TRUE,
                       columnDefs = baseColDefs,
                       searchCols = list(
                         NULL, NULL, NULL, NULL, list(search = "0.000 ... 0.010"), NULL
