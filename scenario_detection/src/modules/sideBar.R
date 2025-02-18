@@ -19,12 +19,32 @@ sideBarModuleOutput <- function(id) {
     width = 2,
     selectInput(ns("State"), "State", states, 'Select a state'),
     dateInput(inputId = ns("Date"), label = "Date", value = EndDate_0, max = EndDate_0),
-    radioButtons(
-      inputId = ns("normalize_radio"),
-      label = "Select normalization option:",
-      choices = list("Count(None)" = "count", "Percent" = "percent"),
-      selected = "count",
-      inline = TRUE  # Set to TRUE for horizontal orientation
+    actionButton(ns("go"), "Load Data"),
+    hidden(p(id = ns("runText"), style = "color:red;", "Processing in progress... Please, wait!")),
+    hr(),
+    tagList(
+      div(
+        style = "display: flex; align-items: center;",
+        span("Select normalization option:", style = "margin-right: 5px;"),
+        helpPopup(
+          id = "", 
+          word="",
+          title = "",
+          content = paste0(
+            "Percent normalization scales each feature element date-wise by the number of records remaining after the application of the current filter set."
+          ),
+          placement = "bottom", trigger = "hover",
+          icon_name = "exclamation-circle",
+          icon_style = "color:blue;font-size:12px"
+        )
+      ),
+      radioButtons(
+        inputId = ns("normalize_radio"),
+        label = NULL,  # Set to NULL since label is now included above
+        choices = list("Count(None)" = "count", "Percent" = "percent"),
+        selected = "count",
+        inline = TRUE  # Set to TRUE for horizontal orientation
+      )
     ),
     radioButtons(
       inputId = ns("method_radio"),
@@ -33,9 +53,6 @@ sideBarModuleOutput <- function(id) {
       selected = "gauss",
       inline = TRUE  # Set to TRUE for horizontal orientation
     ),
-    actionButton(ns("go"), "Load Data"),
-    hidden(p(id = ns("runText"), style = "color:red;", "Processing in progress... Please, wait!")),
-    hr(),
     h4("Filter Controls", 
        style = 'font-size:18px; display: inline-block; margin-right: 12px;'),
     helpPopup(
