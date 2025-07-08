@@ -1,0 +1,32 @@
+#' © 2024 The Johns Hopkins University Applied Physics Laboratory LLC.
+#' Development of this software was sponsored by the U.S. Government under
+#' contract no. 75D30124C19958
+
+name: Spline Cluster Detector App
+
+description: >
+  This app estimates spatio-temporal clusters of target events in a test interval
+  relative to the frequency of those events in a preceding baseline interval. The
+  method used to estimate observed and expected cases in each location, and to 
+  identify clusters is similar to the approach used in SaTScan™ 
+  (https://www.satscan.org/), but the statistical significance of the clusters is
+  determined using a set of classifiers that have learned the tri-variate relationship
+  between observed, log of the observed to expected ratio, and signficance of the
+  space-time permutation statistic. As estimation of the latter can be computationally
+  expensive, leveraging a trained classifier can provide an approximation of the statistic
+  in a fraction of time that would be necessary to run the full permutation-based
+  procedure. 
+  
+  A table of location, dates, and counts of the event of interest is required as
+  input into the cluster identification approach. The app provides three method for
+  providing such an input:
+  1. upload a local file (.csv of .cas)
+  2. build a table builder or data details API using simple URL builder
+  3. input an ad-hoc url
+  
+  Once data are uploaded, the app allows for data exploration (time series plots, 
+  summary statistics, heatmap), cluster identification (with details about each
+  cluster identified), map generation with clusters highlighted, and automatic
+  generation of html report for sharing results.
+
+author: Luke Mullany and Howard Burkom

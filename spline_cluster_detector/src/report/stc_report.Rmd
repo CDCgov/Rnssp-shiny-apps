@@ -1,0 +1,255 @@
+---
+title: "Scenario Detection Shiny App Report"
+output: html_document
+---
+
+```{=html}
+<!--
+# © 2025 The Johns Hopkins University Applied Physics Laboratory LLC
+# Development of this software was sponsored by the U.S. Government under
+# contract no. 75D30124C19958
+-->
+```
+```{=html}
+<!--
+#----------------------------------------------------
+# SpatioTemporal Clustering App
+# Authors:
+#   Luke C. Mullany
+#   Howard Burkom
+#----------------------------------------------------
+-->
+```
+```{=html}
+<style>
+  .title-logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 20px; /* Adjust margin as needed */
+  }
+  .title-logo-container img {
+    margin-right: 20px; /* Adjust spacing between logo and vertical line */
+    height: 150px; /* Adjust the height as needed */
+  }
+  .vertical-line {
+    border-left: 2px solid black; /* Adjust the width and color of the line as needed */
+    height: 150px; /* Match the height of the logo */
+    margin-right: 20px; /* Adjust spacing between vertical line and title */
+  }
+  .title-logo-container h1 {
+    margin: 0;
+    font-weight: bold;
+  }
+  #header {
+    display: none;
+  }
+</style>
+```
+::: title-logo-container
+<img src="logo.png" alt="Logo"/>
+
+::: vertical-line
+:::
+
+<h2>National Syndromic Surveillance Program<br>Spatiotemporal Clustering Report</h2>
+:::
+
+```{r setup, include=FALSE}
+library(htmltools)
+library(knitr)
+library(kableExtra)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{css, formatting, echo = FALSE}
+
+caption {
+  color:black;
+}
+
+hr {
+  color: black;
+  background-color: black;
+  border: none;
+  height: 3px;
+}
+```
+
+```{r, echo=FALSE}
+has_data <- !is.null(results[["summary_stats"]])
+```
+
+
+<hr>
+
+<h3 style="color:black; font-weight:bold;">
+
+`r ifelse(has_data, data_config[["synd_summary"]], "No Report Data")`
+
+</h3>
+
+<hr>
+
+```{r data_config, eval=has_data, echo=FALSE}
+
+## get the data configuration table summary
+
+dc_summary <- data.table(
+  var = c("State", "Geographical Level","Data Source", "Data Level", "Query Type"),
+  value = c(
+    data_config[["state"]], 
+    data_config[["res"]],
+    {ifelse(data_config[["USE_NSSP"]]==FALSE, "Local File Upload", "API Call")},
+    data_config[["data_source"]],
+    {ifelse(data_config[["data_type"]]=="table", "Table Builder", "Data Details")}
+  )
+)
+
+# Some manual updates
+# drop rows for table builder and patient/facility if this is local upload
+if(data_config[["USE_NSSP"]] == FALSE) {
+  dc_summary <- dc_summary[!var %in% c("Data Level", "Query Type")]
+}
+
+dc_summary[, value:=tools::toTitleCase(value)]
+
+## get the cluster configuration table summary
+
+
+base_adj_label <- c(
+  "Add One As Needed" = "add_one",
+  "Add Test Data to Baseline" = "add_test",
+  "No Adjustment" = "none")
+bal <- names(base_adj_label)[which(base_adj_label == cluster_config[["base_adj_meth"]])]
+
+cl_range = paste0(
+  "(",
+  cluster_config[["minimum_cluster_count"]],
+  " - ",
+  ifelse(
+    is.na(cluster_config[["maximum_cluster_count"]]),
+    "Infinite",
+    cluster_config[["maximum_cluster_count"]]
+  ),
+  ")"
+)
+cc_summary <- data.table(
+  var = c(
+    "Cluster Detection Date",
+    "Test Interval (days)",
+    "Baseline Interval (days)",
+    "Max. Cluster Radius (miles)",
+    "Spline",
+    "Baseline Adjustment Method",
+    "Cluster Total Case Restrictions"
+  ),
+  value = c(
+    as.character(cluster_config[["end_date"]]),
+    as.character(cluster_config[["test_length"]]),
+    as.character(cluster_config[["baseline_length"]]),
+    as.character(cluster_config[["radius"]]),
+    as.character(cluster_config[["spline_value"]]),
+    as.character(bal),
+    as.character(cl_range)
+  )
+)
+
+if(data_config[["data_type"]] == "details") {
+  cc_summary <- data.table::rbindlist(list(
+    cc_summary,
+    data.table(
+      var="Filters Applied",
+      value=paste0(cluster_config[["filters"]], collapse="; ")
+    )
+  ))
+}
+
+
+cc_summary[, value:=tools::toTitleCase(value)]
+
+
+```
+
+<!-- <details><summary><h2>Run Specifications</h2></summary> -->
+
+::: {style="display: flex; gap: 2em;"}
+::: {style="flex: 1;"}
+
+
+```{r, eval=has_data, echo=FALSE, results='asis'}
+cat("**Data Configuration**")
+kable(dc_summary, col.names = NULL) |> 
+  kable_styling(font_size = 11) %>%
+  row_spec(
+    1:nrow(dc_summary), 
+    extra_css = "padding: 2px;"
+  )
+```
+:::
+
+::: {style="flex: 1;"}
+
+```{r, eval=has_data, echo=FALSE, results='asis'}
+cat("**Cluster Configuration**")
+kable(cc_summary, col.names = NULL) |> 
+  kable_styling(font_size = 11) %>%
+  row_spec(
+    1:nrow(cc_summary), 
+    extra_css = "padding: 2px;"
+  )
+
+```
+:::
+:::
+
+## {.tabset .tabset-fade .tabset-pills}
+
+### Clusters
+
+```{r, eval = has_data, echo=FALSE}
+if(!is.null(results[["cluster_table_display"]])) {
+  results[["cluster_table_display"]]
+}
+```
+
+### Map
+
+```{r, eval = has_data, echo=FALSE}
+if(!is.null(results[["map"]])) {
+  results[["map"]]
+}
+```
+
+### Data Summary
+
+```{r, eval=has_data, echo=FALSE}
+results[["summary_stats"]]
+```
+
+### Heatmap
+
+```{r, eval=has_data, echo=FALSE, out.width='100%'}
+if(!is.null(results[["heatmap"]])) {
+  results[["heatmap"]]
+}
+```
+
+### Time-Series
+
+```{r, eval=has_data, echo=FALSE, out.width='100%'}
+if(!is.null(results[["time_series_plot"]])) {
+  results[["time_series_plot"]]
+}
+```
+
+
+##
+
+<hr>
+
+::: {style="text-align: center; font-size: 0.8em; font-style: italic;"}
+`r paste0("Report generated on ", format(Sys.Date(), "%A, %B %d, %Y")," at ", format(Sys.time(), "%H:%M %Y %Z"),".")`
+:::
+
+*This report was designed by [Luke Mullany](https://github.com/lmullany), and adapted from a template originally designed by [Josh Kimrey](https://github.com/jkimrey13), Catherine Schwartz, [Gbedegnon Roseric Azondekon](https://rosericazondekon.github.io). For questions, ideas for improvement/collaboration, or attribution, please submit an issue at <https://github.com/CDCgov/Rnssp-shiny-apps/issues>.*
