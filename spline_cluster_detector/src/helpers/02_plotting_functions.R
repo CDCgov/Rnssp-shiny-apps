@@ -217,7 +217,10 @@ generate_leaflet_plot <- function(leaflet_data, level = c("zip", "county"), ...)
       fillColor = ~ labels_and_colors[["custom_palette"]](target),
       label = labels_and_colors[["labels"]]
     ) %>%
-    leaflet.extras::setMapWidgetStyle(list(background = "white"))
+    leaflet.extras::setMapWidgetStyle(list(background = "white")) |> 
+    leaflet.extras::addFullscreenControl() |> 
+    leaflet.extras::addResetMapButton()
+  
 
   return(list(plot = p, labels = labels_and_colors[["labels"]], colors = labels_and_colors[["custom_palette"]]))
 }
