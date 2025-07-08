@@ -46,34 +46,9 @@ and then create the `.Rprofile` file within the root of this repo
 myProfile <- readRDS("rnssp_creds.rds")
 ```
 
-### Requirements
-
-Requires the following libraries
-```R
-library(shiny)
-library(cli)
-library(geosphere)
-library(data.table)
-library(bslib)
-library(bsicons)
-library(DT)
-library(ggplot2)
-library(leaflet)
-library(leaflet.extras)
-library(tigris)
-library(sf)
-library(shinyjs)
-library(shinycssloaders)
-library(Rnssp)
-library(plotly)
-library(kableExtra)
-```
-
-Note that the above required packages must be first installed (and updated to latest versions) in order to run this app
-
 ### Problems and Solutions noted by Users:
 1. a common error regarding `tabset` construction will be raised if `bslib` package version is not updated to at least 0.9.0 (or higher)
-2. not all the above packages are availalble at "https://rs-packages.biosense.wan/prod-cran/latest", so if you are installing the above pre-reqs on Biosense Posit, you may need to explicitly indicate the repo in the `install.packages()` function.  For example: try `install.packages("bsicons", repos = "https://cloud.r-project.org")` instead of `install.packages("bsicons")`
+2. not all the above packages are available at "https://rs-packages.biosense.wan/prod-cran/latest", so if you are installing the above pre-reqs on Biosense Posit, you may need to explicitly indicate the repo in the `install.packages()` function.  For example: try `install.packages("bsicons", repos = "https://cloud.r-project.org")` instead of `install.packages("bsicons")`
 
 
 ### Contacts:

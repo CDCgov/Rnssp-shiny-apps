@@ -180,7 +180,7 @@ cc_summary[, value:=tools::toTitleCase(value)]
 ```{r, eval=has_data, echo=FALSE, results='asis'}
 cat("**Data Configuration**")
 kable(dc_summary, col.names = NULL) |> 
-  kable_styling(font_size = 11) %>%
+  kable_styling(font_size = 11) |> 
   row_spec(
     1:nrow(dc_summary), 
     extra_css = "padding: 2px;"
@@ -193,7 +193,7 @@ kable(dc_summary, col.names = NULL) |>
 ```{r, eval=has_data, echo=FALSE, results='asis'}
 cat("**Cluster Configuration**")
 kable(cc_summary, col.names = NULL) |> 
-  kable_styling(font_size = 11) %>%
+  kable_styling(font_size = 11) |> 
   row_spec(
     1:nrow(cc_summary), 
     extra_css = "padding: 2px;"

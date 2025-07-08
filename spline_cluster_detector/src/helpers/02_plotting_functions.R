@@ -207,7 +207,7 @@ generate_leaflet_plot <- function(leaflet_data, level = c("zip", "county"), ...)
 
   # Currently, this does the same plot for both zip and county
   # TO: fix this to make it more flexible.
-  p <- leaflet() %>%
+  p <- leaflet() |> 
     addPolygons(
       data = leaflet_data,
       color = "black",
@@ -216,11 +216,10 @@ generate_leaflet_plot <- function(leaflet_data, level = c("zip", "county"), ...)
       fillOpacity = 1.0,
       fillColor = ~ labels_and_colors[["custom_palette"]](target),
       label = labels_and_colors[["labels"]]
-    ) %>%
+    ) |> 
     leaflet.extras::setMapWidgetStyle(list(background = "white")) |> 
-    leaflet.extras::addFullscreenControl() |> 
-    leaflet.extras::addResetMapButton()
-  
+    leaflet.extras::addFullscreenControl() |>  
+    leaflet.extras::addResetMapButton() 
 
   return(list(plot = p, labels = labels_and_colors[["labels"]], colors = labels_and_colors[["custom_palette"]]))
 }

@@ -2,26 +2,31 @@
 # Development of this software was sponsored by the U.S. Government under
 # contract no. 75D30124C19958
 
-#######################
-##  PACKAGE IMPORTS
-#######################
-library(shiny)
-library(cli)
-library(geosphere)
-library(data.table)
-library(bslib)
-library(bsicons)
-library(DT)
-library(ggplot2)
-library(leaflet)
-library(leaflet.extras)
-library(tigris)
-library(sf)
-library(shinyjs)
-library(shinycssloaders)
-library(Rnssp)
-library(plotly)
-library(kableExtra)
+##############################################
+##  PACKAGE INSTALLATION AND IMPORTS
+##############################################
+
+
+suppressPackageStartupMessages({
+  packages <- c(
+    "shiny", "cli", "geosphere", "data.table", 
+    "bslib", "bsicons", "DT", "ggplot2", "leaflet", 
+    "leaflet.extras", "tigris", "sf",
+    "shinyjs", "shinycssloaders", "plotly", "kableExtra"
+  )
+})
+
+if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
+  install.packages(setdiff(packages, rownames(installed.packages())))
+}
+
+lapply(packages, library, character.only = TRUE)
+
+if (length(setdiff("Rnssp", rownames(installed.packages()))) > 0) {
+  devtools::install_github("cdcgov/Rnssp", upgrade = "never")
+}
+lapply("Rnssp", library, character.only = TRUE)
+
 
 #######################################
 # Source the package assets
@@ -79,7 +84,7 @@ ZFI = fread("ancillary_data/zcta_fips_intersections.csv", colClasses = "characte
 
 ALLOW_CUSTOM_URL = TRUE
 
-## This is a way to globaly set http version to 1.1
-## but it is a bit like take a sledgehammer.
+## This is a way to globally set http version to 1.1
+## but it is a bit like taking a sledgehammer.
 #httr::set_config(config=httr::config(http_version = 2L))
 
