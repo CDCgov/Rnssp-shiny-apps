@@ -40,8 +40,8 @@ compute_clusters_ui <- function(id) {
     hidden(card(
       id = ns("cluster_card"),
       withSpinner(
-        uiOutput(outputId = ns("clusterdata")),
-        caption="Computing clusters ... can take some time"
+        uiOutput(outputId = ns("clusterdata"))
+        # ,caption="Computing clusters ... can take some time"
       ),
       card_footer(
         downloadButton(ns("cluster_display_download_btn"),
