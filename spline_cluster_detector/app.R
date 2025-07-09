@@ -43,7 +43,7 @@ ui <- page(
     ),
     nav_spacer(),
     nav_item(report_ui("report")),
-    nav_item(input_dark_mode(mode="dark")),
+    nav_item(input_dark_mode()),
     navbar_options = list(class = "bg-primary", theme = "dark", underline=FALSE)
   )
 )
