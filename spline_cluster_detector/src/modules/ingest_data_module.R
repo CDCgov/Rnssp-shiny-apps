@@ -29,12 +29,12 @@ ingested_data_ui <- function(id) {
   hidden(div(
     id = ns("ingest_data_card"),
     card(
+      card_header("Counts by Location and Date",class = "bg-primary"),
       id = ns("ingest_data_card"),
-      min_height = 300,
-      withSpinner(
-        dataTableOutput(ns("inputdata"))
-        # ,caption = "Loading Data (API calls can take some time)"
-      ),
+      max_height = 800,
+      full_screen = TRUE,
+      withSpinner(dataTableOutput(ns("inputdata")), 
+                  caption = "Loading Data (API calls can take some time)"),
       card_footer(
         downloadButton(ns("download_ingested_data"), "Download Data", class = "btn-primary btn-sm"),
         actionButton(ns("url"), "Show URL/Source Path", class = "btn-primary btn-sm")
@@ -67,7 +67,7 @@ ingested_data_server <- function(id, profile,  results, dc, cc, ibc, parent_sess
         cc$distance_locations <- dl()$loc_vec
         cc$distance_matrix <- dl()$distance_matrix
       })
-      
+    
       # Hide the data card if the global reactive use nssp changes
       observe(hideElement("ingest_data_card")) |> bindEvent(dc$USE_NSSP)
       
@@ -167,7 +167,7 @@ ingested_data_server <- function(id, profile,  results, dc, cc, ibc, parent_sess
             update_task_button(session = parent_session, "ingest_btn",state="ready")
             toggle_task_button_color(parent_session$ns("ingest_btn"), busy=FALSE)
           }
-          
+            
         )
         
         
@@ -186,7 +186,7 @@ ingested_data_server <- function(id, profile,  results, dc, cc, ibc, parent_sess
         
         if(dc$USE_NSSP) message <- dt_events()$description
         else message <- "LOCAL FILE SELECTED/LOADED"
-        
+
         showModal( 
           modalDialog( 
             title = "Data Source (Esc to Close)",
@@ -208,7 +208,8 @@ ingested_data_server <- function(id, profile,  results, dc, cc, ibc, parent_sess
         datatable(
           dt_events()$data[count>0, list(display_name, date, count)],
           colnames = c("Location", "Date", "Count"),
-          rownames = FALSE
+          rownames = FALSE,
+          options = list(pageLength=20)
         ) 
       },server=TRUE) 
       

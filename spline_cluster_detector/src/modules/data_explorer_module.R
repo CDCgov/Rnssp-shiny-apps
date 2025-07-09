@@ -62,7 +62,7 @@ data_explorer_ui <- function(id) {
         card(
           full_screen = TRUE, 
           min_height = "500px",
-          plotlyOutput(ns("heatmap")),
+          withSpinner(plotlyOutput(ns("heatmap")), caption="Heatmap Loading"),
           option_controls,
           class = 'bg-transparent border-0'
         )
@@ -72,7 +72,7 @@ data_explorer_ui <- function(id) {
         card(
           full_screen=TRUE,
           min_height = "500px",
-          plotlyOutput(ns("tSeries")),
+          withSpinner(plotlyOutput(ns("tSeries")), caption="Time Series Loading"),
           class = 'bg-transparent border-0'
         )
       )

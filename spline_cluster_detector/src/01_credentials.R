@@ -32,8 +32,8 @@ get_profile <- function(
 
   provide_credentials <- rstudioapi::showQuestion(
     title = title, 
-    message = "Do you want to provide credentials?",
-    "Provide credentials", "Use local file upload only"
+    message = "App Mode (API Usage vs Local File Only):",
+    "Utilize API to Input Data", "Use local data files only"
   )
   
   if(!provide_credentials) return(list(
