@@ -31,7 +31,7 @@ cluster_line_listing_ui <- function(id) {
             "Choose Cluster Center(s)",
             choices=NULL
           )),
-          hidden(input_switch(ns("unmask"), "Show Actual Values", value=FALSE)),
+          hidden(input_switch(ns("unmask"), "Show Actual Values", value=TRUE)),
           style = "overflow: visible"
         ),
         style = "overflow: visible"
@@ -159,7 +159,7 @@ cluster_line_listing_server <- function(id, results, dc, cc, profile, recompute)
       observe(toggleElement("cluster_ll_card", condition=!is.null(nrow(ll_data()))))
       # hide the ll center selector if no ll_data()
       observe(toggleElement("ll_cluster_selector", condition=!is.null(nrow(ll_data()))))
-      observe(toggleElement("unmask", condition=!is.null(nrow(ll_data()))))
+      #observe(toggleElement("unmask", condition=!is.null(nrow(ll_data()))))
       
       # hide the generate LL button if no clusters
       observe(toggleElement("generate_ll_task", condition=conditions_met()))

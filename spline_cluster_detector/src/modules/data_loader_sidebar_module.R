@@ -173,7 +173,7 @@ dl_sidebar_ui <- function(id) {
       inputId = ns("local_or_nssp"),
       label = labeltt(sb_ll[["local_or_nssp"]]),
       choices = c("Local File" = "local", "NSSP API Call" = "nssp"),
-      selected = "local",
+      selected = "nssp",
       inline = TRUE
     ),
     conditionalPanel(
@@ -238,6 +238,8 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
           HTML(paste0("<p style='color:red'>", custom_url_valid(), "</p>"))
         }
       })
+      
+      observe(if(!valid_profile()) updateRadioButtons(inputId = "local_or_nssp", selected="local"))
 
       ns=session$ns
 
