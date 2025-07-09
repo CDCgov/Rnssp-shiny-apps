@@ -17,7 +17,10 @@ suppressPackageStartupMessages({
 })
 
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
-  install.packages(setdiff(packages, rownames(installed.packages())))
+  install.packages(
+    setdiff(packages, rownames(installed.packages())),
+    repos = c(getOption("repos"), "https://cloud.r-project.org", "http://cran.rstudio.com/")
+  )
 }
 
 lapply(packages, library, character.only = TRUE)
