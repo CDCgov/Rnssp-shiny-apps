@@ -36,22 +36,22 @@ ui <- page(
     clustering_ui("clustering"),
     nav_panel(
       "Documentation",
-      tags$iframe(src="documentation.html",
-                  style  = "width: 100%; height: 800px; border: none;",
-                  seamless = "seamless"
-                  )
+      tags$iframe(src = "documentation.html",
+        style  = "width: 100%; height: 800px; border: none;",
+        seamless = "seamless"
+      )
     ),
     nav_spacer(),
     nav_item(report_ui("report")),
     nav_item(input_dark_mode()),
-    navbar_options = list(class = "bg-primary", theme = "dark", underline=FALSE)
+    navbar_options = list(class = "bg-primary", theme = "dark", underline = FALSE)
   )
 )
 
 # server -------------
 server <- function(input, output, session) {
   
-  options(shiny.maxRequestSize=30*1024^2) 
+  options(shiny.maxRequestSize = 30 * 1024^2) 
   
   # ----------------------------------------------------------------------
   # Global Reactives for Profile
@@ -65,11 +65,11 @@ server <- function(input, output, session) {
   data_config <- reactiveValues(
     # basic data characteristics
     res = NULL, state = NULL, state2 = NULL,
-    data_load_start=NULL, data_load_end = NULL,
-    
+    data_load_start = NULL, data_load_end = NULL,
+
     # data content/syndrome characteristics
     synd_summary = NULL,
-    
+
     # url and source info
     url_params = NULL, source_data = NULL, USE_NSSP = FALSE, data_type = NULL,
     data_source = NULL, custom_url = NULL, custom_url_valid = TRUE,
@@ -81,21 +81,21 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------
   
   cluster_config <- reactiveValues(
-    radius = NULL, 
+    radius = NULL,
     test_length = NULL, end_date = NULL, baseline_length = NULL,
     distance_locations = NULL, distance_matrix = NULL,
-    spline_lookup = NULL, spline_value=NULL, base_adj_meth = NULL,
-    filters=NULL
+    spline_lookup = NULL, spline_value = NULL, base_adj_meth = NULL,
+    filters = NULL
   )
   
   # ----------------------------------------------------------------------
   # Global Reactives for Main Results
   # ----------------------------------------------------------------------
   results <- reactiveValues(
-    cluster_data=NULL, cluster_table_display=NULL, cluster_data_extended=NULL,
-    map=NULL, heatmap=NULL, 
-    time_series_plot=NULL, summary_stats=NULL, records=NULL, records_description=NULL,
-    data_details=NULL, filtered_records=NULL, filtered_records_count=NULL
+    cluster_data = NULL, cluster_table_display = NULL, cluster_data_extended = NULL,
+    map = NULL, heatmap = NULL,
+    time_series_plot = NULL, summary_stats = NULL, records = NULL, records_description = NULL,
+    data_details = NULL, filtered_records = NULL, filtered_records_count = NULL
   )
   
   # ---------------------------------------------------------

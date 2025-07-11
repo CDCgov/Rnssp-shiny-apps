@@ -70,99 +70,99 @@ county_prefix_lookup <- c(
   OH = "^39", WI = "^55", OR = "^41", ND = "^38", AR = "^05", IN = "^18", 
   MN = "^27", CT = "^09", AK = "^02", HI = "^15")
 
-# Function to detect states, given zip code location vector, and lookup
+# Function to detect states, given zip code location vector, and look up
 get_states_from_location_lookup <- function(locations, lookup) {
-  locations = unique(as.character(locations))
-  hits <- sapply(lookup, \(l) any(grepl(l,locations)))
-  if(any(hits)) names(which(hits)) else NULL
+  locations <- unique(as.character(locations))
+  hits <- sapply(lookup, \(l) any(grepl(l, locations)))
+  if (any(hits)) names(which(hits)) else NULL
 }
 
-get_states_from_location <- function(locations, res=c(NA, "zip", "county")) {
-  res = match.arg(res)
-  locations = unique(locations)
-  
-  if(!is.na(res) && res=="zip") {
+get_states_from_location <- function(locations, res = c(NA, "zip", "county")) {
+  res <- match.arg(res)
+  locations <- unique(locations)
+
+  if (!is.na(res) && res == "zip") {
     return(get_states_from_location_lookup(locations, zip_prefix_lookup))
   }
-  cstates = get_states_from_location_lookup(locations, county_prefix_lookup)
-  string_states = base::intersect(c("DC", state.abb),unique(substr(locations,1,2)))
-  if(is.na(res)) {
-    zstates = get_states_from_location_lookup(locations, zip_prefix_lookup)
-  } else zstates = NULL
-  result = unique(c(cstates, string_states, zstates))
-  if(length(result)>0) return(result) else NULL
+  cstates <- get_states_from_location_lookup(locations, county_prefix_lookup)
+  string_states <- base::intersect(c("DC", state.abb), unique(substr(locations, 1, 2)))
+  if (is.na(res)) {
+    zstates <- get_states_from_location_lookup(locations, zip_prefix_lookup)
+  } else zstates <- NULL
+  result <- unique(c(cstates, string_states, zstates))
+  if (length(result) > 0) return(result) else NULL
 }
 
 get_sites_by_state <- function(st) {
   site_lookup <- structure(list(
-    `Site ID` = c("857", "858", "859", "860", "861", 
-      "862", "950", "973", "863", "865", "1019", "996", "977", "866", 
-      "867", "868", "869", "871", "872", "873", "955", "978", "880", 
-      "879", "881", "882", "884", "885", "979", "886", "887", "888", 
-      "889", "890", "893", "892", "894", "895", "896", "899", "901", 
-      "902", "903", "904", "906", "905", "907", "908", "909", "910", 
-      "911", "912", "913", "914", "916", "915", "917", "918", "919", 
-      "920", "922", "923", "924", "925", "926", "929", "928", "930", 
+    `Site ID` = c("857", "858", "859", "860", "861",
+      "862", "950", "973", "863", "865", "1019", "996", "977", "866",
+      "867", "868", "869", "871", "872", "873", "955", "978", "880",
+      "879", "881", "882", "884", "885", "979", "886", "887", "888",
+      "889", "890", "893", "892", "894", "895", "896", "899", "901",
+      "902", "903", "904", "906", "905", "907", "908", "909", "910",
+      "911", "912", "913", "914", "916", "915", "917", "918", "919",
+      "920", "922", "923", "924", "925", "926", "929", "928", "930",
       "931", "933", "934", "936", "937", "938"),
-    `Site Name` = c("Alaska", "Alabama", "Arkansas","Arizona", "California",
-                    "El Dorado County", "Long Beach", "Los Angeles County",
-                    "Monterey County", "Nevada County", "Orange County",
-                    "Placer County", "Plumas County", "Riverside County",
-                    "Sacramento County", "San Diego County", "San Mateo County",
-                    "Santa_Cruz County", "Solano County", "Stanislaus County",
-                    "Yolo", "Yosemite Gateway Region", "Connecticut", "Colorado",
-                    "District of Columbia", "Delaware", "Florida", "Georgia",
-                    "Guam", "Hawaii", "Iowa", "Linn County", "Idaho", "Illinois",
-                    "Marion County", "Indiana", "Kansas", "Kentucky", "Louisiana",
-                    "Massachusetts", "Maryland", "Maine", "Michigan", "Minnesota",
-                    "Missouri", "Mississippi", "Montana", "North Carolina",
-                    "North Dakota", "Nebraska", "New Hampshire", "New Jersey",
-                    "New Mexico", "Nevada", "New York", "New York City", "Ohio",
-                    "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", 
-                    "South Carolina", "South Dakota", "Tennessee", "Texas",
-                    "Texas Region 2/3", "TX_Region65", "Utah", "Virginia",
-                    "Vermont", "Washington", "Wisconsin", "West Virginia",
-                    "Wyoming"),
+    `Site Name` = c("Alaska", "Alabama", "Arkansas", "Arizona", "California",
+      "El Dorado County", "Long Beach", "Los Angeles County",
+      "Monterey County", "Nevada County", "Orange County",
+      "Placer County", "Plumas County", "Riverside County",
+      "Sacramento County", "San Diego County", "San Mateo County",
+      "Santa_Cruz County", "Solano County", "Stanislaus County",
+      "Yolo", "Yosemite Gateway Region", "Connecticut", "Colorado",
+      "District of Columbia", "Delaware", "Florida", "Georgia",
+      "Guam", "Hawaii", "Iowa", "Linn County", "Idaho", "Illinois",
+      "Marion County", "Indiana", "Kansas", "Kentucky", "Louisiana",
+      "Massachusetts", "Maryland", "Maine", "Michigan", "Minnesota",
+      "Missouri", "Mississippi", "Montana", "North Carolina",
+      "North Dakota", "Nebraska", "New Hampshire", "New Jersey",
+      "New Mexico", "Nevada", "New York", "New York City", "Ohio",
+      "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island",
+      "South Carolina", "South Dakota", "Tennessee", "Texas",
+      "Texas Region 2/3", "TX_Region65", "Utah", "Virginia",
+      "Vermont", "Washington", "Wisconsin", "West Virginia",
+      "Wyoming"),
     State = c("AK", "AL", "AR", "AZ", "CA", "CA", "CA", "CA", "CA", "CA", "CA",
-              "CA", "CA", "CA", "CA", "CA", "CA", "CA", "CA", "CA", "CA", "CA",
-              "CN", "CO", "DC", "DE", "FL", "GE", "GU", "HI", "IA", "IA", "ID",
-              "IL", "IN", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN",
-              "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY",
-              "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "TX",
-              "TX", "UT", "VI", "VT", "WA", "WI", "WV", "WY")
+      "CA", "CA", "CA", "CA", "CA", "CA", "CA", "CA", "CA", "CA", "CA",
+      "CN", "CO", "DC", "DE", "FL", "GE", "GU", "HI", "IA", "IA", "ID",
+      "IL", "IN", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN",
+      "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY",
+      "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "TX",
+      "TX", "UT", "VI", "VT", "WA", "WI", "WV", "WY")
   ), row.names = c(NA, -74L), class = "data.frame")
-  
+
   data.table::setDT(site_lookup)
-  
-  site_lookup[State==st, unique(`Site ID`)]
+
+  site_lookup[State == st, unique(`Site ID`)]
 }
 
 # Function tries to extract locations from url
-extract_locations_from_url <- function(url, res=c("zip", "county")) {
-  
-  res = match.arg(res)
-  
-  regex = list("zip" = "\\d{5}", "county" = "[A-Za-z]{2}_")
-  
+extract_locations_from_url <- function(url, res = c("zip", "county")) {
+
+  res <- match.arg(res)
+
+  regex <- list("zip" = "\\d{5}", "county" = "[A-Za-z]{2}_")
+
   stringr::str_extract_all(
     url,
     paste0("geography=", regex[[res]])
   )[[1]] |>
-    stringr::str_remove("geography=") 
+    stringr::str_remove("geography=")
 }
 
 
 # function uses zfi ( a zcta fips intersection table)
 # to find the counties touched by zips, or the zips
 # touched by counties
-find_intersects<- function(clt, zfi, res=c("zip", "county")) {
-  res = match.arg(res)
-  if(res=="zip") {
-    result <- unique(zfi[clt, on=.(zipcode == location)][, .(fips, target)])
-    result[, fips:=gen_display_name_from_fips(fips)]
+find_intersects <- function(clt, zfi, res = c("zip", "county")) {
+  res <- match.arg(res)
+  if (res == "zip") {
+    result <- unique(zfi[clt, on = .(zipcode == location)][, .(fips, target)])
+    result[, fips := gen_display_name_from_fips(fips)]
     result[, .(intersected_locs = toString(fips)), target]
   } else {
-    result <- unique(zfi[clt, on=.(fips == location)][, .(zipcode, target)])
+    result <- unique(zfi[clt, on = .(fips == location)][, .(zipcode, target)])
     result[, .(intersected_locs = toString(zipcode)), target]
   }
 }

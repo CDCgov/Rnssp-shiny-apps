@@ -11,26 +11,26 @@ credServer <- function(id, profile, valid_profile) {
   moduleServer(
     id,
     function(input, output, session) {
-      
+
       ns <- session$ns
-      
+
       observe({
-        if(!valid_profile()) showModal(credentials_modal(ns=ns))
+        if (!valid_profile()) showModal(credentials_modal(ns = ns))
       })
-      
+
       observe({
         # Process Credentials Dialog Submission
-        if(!is.null(input$cred_user) && input$cred_user!="") {
-          prof <- create_profile(username = input$cred_user, password=input$cred_pwd)
+        if (!is.null(input$cred_user) && input$cred_user != "") {
+          prof <- create_profile(username = input$cred_user, password = input$cred_pwd)
         }
         # Now, check for validity
-        if(!is.null(prof) && check_profile(prof)) {
+        if (!is.null(prof) && check_profile(prof)) {
           profile(prof)
           valid_profile(TRUE)
           removeModal()
-        } else showModal(credentials_modal(ns=ns,failed=TRUE))
+        } else showModal(credentials_modal(ns = ns, failed = TRUE))
       }) |> bindEvent(input$submit_creds)
-      
+
     }
   )
 }
@@ -47,20 +47,20 @@ check_profile <- function(profile, url = "https://essence.syndromicsurveillance.
   # this would return FALSE
   tryCatch(
     {
-      resp <- get_api_response(url=url, profile=profile)
+      resp <- get_api_response(url = url, profile = profile)
       return(resp$status == 200)
     },
     error = function(e) FALSE,
     warning = function(w) FALSE
   )
-  
+
 }
 
-credentials_modal <- function(ns = NS(), failed=FALSE) {
-  
+credentials_modal <- function(ns = NS(), failed = FALSE) {
+
   modalDialog(
     title = "Enter NSSP API Credentials",
-    if(failed == TRUE) div(p("Invalid Credentials", style="color:red")),
+    if (failed == TRUE) div(p("Invalid Credentials", style = "color:red")),
     textInput(ns("cred_user"), "Username"),
     passwordInput(ns("cred_pwd"), "Password"),
     easyClose = T,

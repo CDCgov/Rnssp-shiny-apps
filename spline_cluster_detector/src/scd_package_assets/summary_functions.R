@@ -323,17 +323,17 @@ plotly_heatmap <- function(
     )
   }
 
-  hovertext = "Count: %{z}<br>Date: %{x}<br>Loc: %{y}<extra></extra>"
+  hovertext <- "Count: %{z}<br>Date: %{x}<br>Loc: %{y}<extra></extra>"
   if (logscale) {
     z <- paste0("log(", z, ")")
-    hovertext = paste0("Log ", hovertext)
+    hovertext <- paste0("Log ", hovertext)
   }
-  
+
   p <- plotly::plot_ly(
     heatmap_data,
     x = af(x), y = af(y), z = af(z),
     type = "heatmap",
-    hoverongaps=F,
+    hoverongaps = F,
     hovertemplate = hovertext,
     colorbar = list(
       title = data.table::fifelse(logscale, "Log Count", "Count")
@@ -341,7 +341,7 @@ plotly_heatmap <- function(
   ) |>
     plotly::layout(
       xaxis = list(title = "Date"),
-      yaxis = list(title = "", autorange="reversed")
+      yaxis = list(title = "", autorange = "reversed")
     )
 
   if (!is.null(attr(heatmap_data, "start_date"))) {
@@ -508,7 +508,7 @@ generate_ggplot_time_series <- function(
 generate_plotly_time_series <- function(
     time_series_data,
     ...) {
-  
+
   time_series_plot <- plotly::plot_ly(
     data = time_series_data[order(date)],
     x = ~date,

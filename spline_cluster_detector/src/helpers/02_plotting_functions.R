@@ -7,38 +7,37 @@
 
 # Helper function to get the shape file on demand
 
-get_shape_file_from_tigris <- function(st, level = c("zip", "county"), refresh = FALSE, use_cb=FALSE, zctas_from_tigris = TRUE) {
+get_shape_file_from_tigris <- function(st, level = c("zip", "county"), refresh = FALSE, use_cb = FALSE, zctas_from_tigris = TRUE) {
   level <- match.arg(level)
-  
+
   # if zip is the level using zctas function, for this state
   if (level == "zip") {
-    
     # if zctas from tigris is false, check for local file. If local
     # file does not exist, set zctas from tigris to TRUE
-    if(zctas_from_tigris == FALSE) {
-      local_zcta_name = paste0("state_zcta/", st, "_zcta.rds")
-      if(!file.exists(local_zcta_name)) {
-        zctas_from_tigris=TRUE
+    if (zctas_from_tigris == FALSE) {
+      local_zcta_name <- paste0("state_zcta/", st, "_zcta.rds")
+      if (!file.exists(local_zcta_name)) {
+        zctas_from_tigris <- TRUE
       }
     }
-    
-    if(zctas_from_tigris) {
+
+    if (zctas_from_tigris) {
       sh <- tigris::zctas(year = 2010, state = st, refresh = refresh)
       # add datum and fix column names
       sh <- sf::st_transform(sh, crs = "+proj=longlat +datum=WGS84")
     } else {
-      sh <- readRDS(paste0("state_zcta/",st, "_zcta.rds"))
+      sh <- readRDS(paste0("state_zcta/", st, "_zcta.rds"))
     }
     colnames(sh)[which(startsWith(colnames(sh), "ZCTA5CE"))] <- "GEOID"
   } else  {
     sh <- Rnssp::county_sf
-    if(st!="US") {
+    if (st != "US") {
       # reduce to state
-      statefp <- Rnssp::state_sf[Rnssp::state_sf$STUSPS==st,"STATEFP"]$STATEFP |> as.character()
-      sh <- Rnssp::county_sf[Rnssp::county_sf$STATEFP==statefp,]
+      statefp <- Rnssp::state_sf[Rnssp::state_sf$STUSPS == st, "STATEFP"]$STATEFP |> as.character()
+      sh <- Rnssp::county_sf[Rnssp::county_sf$STATEFP == statefp, ]
     }
   }
-  
+
   return(sh)
 
 }
@@ -88,27 +87,27 @@ generate_zip_leaflet_data <- function(cluster_data, shape_data, distance_matrix)
     cluster_data,
     distance_matrix
   )
-  
+
   # merge the shape file to these cluster centers
   ld <- merge(shape_data, cluster_centers, by = "GEOID", all.x = TRUE)
-  
+
 
   # merge individual location counts
   ld <- merge(
     ld,
     cluster_data$cluster_location_counts,
-    by.x = c("GEOID","target"),
+    by.x = c("GEOID", "target"),
     by.y = c("location", "target"),
     all.x = TRUE
   )
 
   # replace NA
-  ld[["target"]] = data.table::fifelse(is.na(ld[["target"]]), "0", ld[["target"]])
-  
-  for(col in c("observed", "expected", "nr_locs", "nr_days", "count")) {
-    ld[[col]]=data.table::fifelse(is.na(ld[[col]]), 0, ld[[col]])
+  ld[["target"]] <- data.table::fifelse(is.na(ld[["target"]]), "0", ld[["target"]])
+
+  for (col in c("observed", "expected", "nr_locs", "nr_days", "count")) {
+    ld[[col]] <- data.table::fifelse(is.na(ld[[col]]), 0, ld[[col]])
   }
-  
+
   # add a character label for each zip code (cluster center or not)
   ld$label_center <- fifelse(ld$target == 0, "No Cluster", ld$target)
 
@@ -135,18 +134,18 @@ get_cluster_center_locations <- function(cluster_data, distance_matrix) {
   dm <- data.table(distance_matrix, keep.rownames = "target")
 
   # merge the cluster_alert table
-  cluster_center_locations <- 
-    dm[cluster_alert_table[, .(target, distance_value, nr_days = as.integer(detect_date - date + 1))], 
-       on = "target"]
+  cluster_center_locations <-
+    dm[cluster_alert_table[, .(target, distance_value, nr_days = as.integer(detect_date - date + 1))],
+      on = "target"]
 
   # melt it long
-  cluster_center_locations <- melt(cluster_center_locations, 
-                                   id.var = c("target", "distance_value", "nr_days"))
+  cluster_center_locations <- melt(cluster_center_locations,
+    id.var = c("target", "distance_value", "nr_days"))
 
   # reduce to only those locations that are within the distance_value and select columns
   cluster_center_locations <- cluster_center_locations[
     value <= distance_value,
-    .(target, GEOID = variable,nr_days)
+    .(target, GEOID = variable, nr_days)
   ]
 
   # merge back to the cluster_alert_table
@@ -207,7 +206,7 @@ generate_leaflet_plot <- function(leaflet_data, level = c("zip", "county"), ...)
 
   # Currently, this does the same plot for both zip and county
   # TO: fix this to make it more flexible.
-  p <- leaflet() |> 
+  p <- leaflet() |>
     addPolygons(
       data = leaflet_data,
       color = "black",
@@ -216,10 +215,10 @@ generate_leaflet_plot <- function(leaflet_data, level = c("zip", "county"), ...)
       fillOpacity = 1.0,
       fillColor = ~ labels_and_colors[["custom_palette"]](target),
       label = labels_and_colors[["labels"]]
-    ) |> 
-    leaflet.extras::setMapWidgetStyle(list(background = "white")) |> 
-    leaflet.extras::addFullscreenControl() |>  
-    leaflet.extras::addResetMapButton() 
+    ) |>
+    leaflet.extras::setMapWidgetStyle(list(background = "white")) |>
+    leaflet.extras::addFullscreenControl() |>
+    leaflet.extras::addResetMapButton()
 
   return(list(plot = p, labels = labels_and_colors[["labels"]], colors = labels_and_colors[["custom_palette"]]))
 }
