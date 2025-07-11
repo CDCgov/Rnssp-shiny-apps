@@ -221,7 +221,7 @@ deduplicate_datadetails <- function(
   setDT(data) |>
     # 1. filter out certain types
     _[!grepl(excl_fac_types, FacilityType,ignore.case = T)] |>
-    # 3. deduplicate
+    # 2. deduplicate
     _[order(Date), .SD[1], .(Visit_ID, Hospital)]
   
 }
