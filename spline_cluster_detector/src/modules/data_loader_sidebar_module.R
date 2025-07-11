@@ -71,7 +71,13 @@ sb_ll <- list(
     baseline_length = list(
       l = "Baseline Length",
       m = paste0("Number of days in the baseline interval (min 1, max ", MAX_DATE_RANGE, ")")
+    ),
+    dedup = list(
+      l = "De-duplicate?",
+      m = "De-duplicates encounters by taking the first (chronological) encounter within VisitID and Hospital.
+      The default behavior is to NOT de-duplicate."
     )
+    
     
     
 )
@@ -121,7 +127,7 @@ dl_sidebar_ui <- function(id) {
     ),
     conditionalPanel(
       condition = "input.data_type == 'details'",
-      input_switch(id = ns("dedup"), label = "De-duplicate?", value=TRUE),
+      input_switch(id = ns("dedup"), label = labeltt(sb_ll[["dedup"]]), value=FALSE),
       ns=ns
     )
   )
