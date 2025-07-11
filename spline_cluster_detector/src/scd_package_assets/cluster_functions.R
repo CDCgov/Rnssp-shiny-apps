@@ -332,7 +332,7 @@ generate_observed_expected <- function(
   )]
 
   # add the log of observed to expected
-  if(adjust == TRUE) {
+  if (adjust == TRUE) {
     dt_cases_grid_clust[, log_obs_exp := data.table::fifelse(
       expected == 0,
       log(observed / (expected + adj_constant)),
@@ -372,20 +372,20 @@ generate_observed_expected <- function(
 #'   table will be 01 (i.e. \code{spline_01} dataset)
 #' @export
 #' @returns a frame containing rows of oe_grid that are candidate alert clusters
-add_spline_threshold <- function(oe_grid, spline_lookup=NULL) {
+add_spline_threshold <- function(oe_grid, spline_lookup = NULL) {
 
-  if(is.null(spline_lookup)) {
+  if (is.null(spline_lookup)) {
     # use the default
-    spline_lookup = spline_01
-  } else if(inherits(spline_lookup, "character")) {
-    if(!spline_lookup %in% c("001", "005", "01", "05")) {
+    spline_lookup <- spline_01
+  } else if (inherits(spline_lookup, "character")) {
+    if (!spline_lookup %in% c("001", "005", "01", "05")) {
       cli::cli_abort(
         "If calling a built-in spline lookup, use one of '001','005','01','05'"
       )
     } else {
       spline_lookup <- get(paste0("spline_", spline_lookup))
     }
-  } else if(!inherits(spline_lookup, "data.frame")) {
+  } else if (!inherits(spline_lookup, "data.frame")) {
     cli::cli_abort(
       "spline lookup must be NULL, an allowed string, or of class data.frame"
     )
@@ -785,7 +785,7 @@ find_clusters <- function(
     cases,
     distance_matrix,
     detect_date,
-    spline_lookup=NULL,
+    spline_lookup = NULL,
     baseline_length = 90,
     max_test_window_days = 7,
     guard_band = 0,
@@ -798,7 +798,7 @@ find_clusters <- function(
     use_fast = TRUE,
     return_interim = FALSE) {
 
-  baseline_adjustment = match.arg(baseline_adjustment)
+  baseline_adjustment <- match.arg(baseline_adjustment)
 
 
   # 1. Get the baseline counts, the test interval counts, totals etc

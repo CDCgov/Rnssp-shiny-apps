@@ -96,23 +96,27 @@ has_data <- !is.null(results[["summary_stats"]])
 ## get the data configuration table summary
 
 dc_summary <- data.table(
-  var = c("State", "Geographical Level","Data Source", "Data Level", "Query Type"),
+  var = c("State", "Geographical Level", "Data Source", "Data Level", "Query Type"),
   value = c(
-    data_config[["state"]], 
+    data_config[["state"]],
     data_config[["res"]],
-    {ifelse(data_config[["USE_NSSP"]]==FALSE, "Local File Upload", "API Call")},
+    {
+      ifelse(data_config[["USE_NSSP"]] == FALSE, "Local File Upload", "API Call")
+    },
     data_config[["data_source"]],
-    {ifelse(data_config[["data_type"]]=="table", "Table Builder", "Data Details")}
+    {
+      ifelse(data_config[["data_type"]] == "table", "Table Builder", "Data Details")
+    }
   )
 )
 
 # Some manual updates
 # drop rows for table builder and patient/facility if this is local upload
-if(data_config[["USE_NSSP"]] == FALSE) {
+if (data_config[["USE_NSSP"]] == FALSE) {
   dc_summary <- dc_summary[!var %in% c("Data Level", "Query Type")]
 }
 
-dc_summary[, value:=tools::toTitleCase(value)]
+dc_summary[, value := tools::toTitleCase(value)]
 
 ## get the cluster configuration table summary
 
@@ -123,7 +127,7 @@ base_adj_label <- c(
   "No Adjustment" = "none")
 bal <- names(base_adj_label)[which(base_adj_label == cluster_config[["base_adj_meth"]])]
 
-cl_range = paste0(
+cl_range <- paste0(
   "(",
   cluster_config[["minimum_cluster_count"]],
   " - ",
@@ -155,18 +159,18 @@ cc_summary <- data.table(
   )
 )
 
-if(data_config[["data_type"]] == "details") {
+if (data_config[["data_type"]] == "details") {
   cc_summary <- data.table::rbindlist(list(
     cc_summary,
     data.table(
-      var="Filters Applied",
-      value=paste0(cluster_config[["filters"]], collapse="; ")
+      var = "Filters Applied",
+      value = paste0(cluster_config[["filters"]], collapse = "; ")
     )
   ))
 }
 
 
-cc_summary[, value:=tools::toTitleCase(value)]
+cc_summary[, value := tools::toTitleCase(value)]
 
 
 ```
@@ -208,7 +212,7 @@ kable(cc_summary, col.names = NULL) |>
 ### Clusters
 
 ```{r, eval = has_data, echo=FALSE}
-if(!is.null(results[["cluster_table_display"]])) {
+if (!is.null(results[["cluster_table_display"]])) {
   results[["cluster_table_display"]]
 }
 ```
@@ -216,7 +220,7 @@ if(!is.null(results[["cluster_table_display"]])) {
 ### Map
 
 ```{r, eval = has_data, echo=FALSE}
-if(!is.null(results[["map"]])) {
+if (!is.null(results[["map"]])) {
   results[["map"]]
 }
 ```
@@ -230,7 +234,7 @@ results[["summary_stats"]]
 ### Heatmap
 
 ```{r, eval=has_data, echo=FALSE, out.width='100%'}
-if(!is.null(results[["heatmap"]])) {
+if (!is.null(results[["heatmap"]])) {
   results[["heatmap"]]
 }
 ```
@@ -238,7 +242,7 @@ if(!is.null(results[["heatmap"]])) {
 ### Time-Series
 
 ```{r, eval=has_data, echo=FALSE, out.width='100%'}
-if(!is.null(results[["time_series_plot"]])) {
+if (!is.null(results[["time_series_plot"]])) {
   results[["time_series_plot"]]
 }
 ```

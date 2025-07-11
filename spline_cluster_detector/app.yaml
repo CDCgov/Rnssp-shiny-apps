@@ -11,7 +11,7 @@ description: >
   identify clusters is similar to the approach used in SaTScan™ 
   (https://www.satscan.org/), but the statistical significance of the clusters is
   determined using a set of classifiers that have learned the tri-variate relationship
-  between observed, log of the observed to expected ratio, and signficance of the
+  between observed, log of the observed to expected ratio, and significance of the
   space-time permutation statistic. As estimation of the latter can be computationally
   expensive, leveraging a trained classifier can provide an approximation of the statistic
   in a fraction of time that would be necessary to run the full permutation-based
@@ -20,7 +20,7 @@ description: >
   A table of location, dates, and counts of the event of interest is required as
   input into the cluster identification approach. The app provides three method for
   providing such an input:
-  1. upload a local file (.csv of .cas)
+  1. upload a local file (.csv or .cas)
   2. build a table builder or data details API using simple URL builder
   3. input an ad-hoc url
   
@@ -30,4 +30,4 @@ description: >
   generation of html report for sharing results.
 
 author: Luke Mullany and Howard Burkom
-contributors: Gbedegnon Roseric Azondekon & Michael Sheppard
+contributors: Gbedegnon Roseric Azondekon, Michael Sheppard, Andrew Farrey
