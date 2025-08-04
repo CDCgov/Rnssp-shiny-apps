@@ -105,7 +105,6 @@ server <- function(input, output, session) {
   clustering_server("clustering", results, data_config, cluster_config, profile)
   report_server("report", results, data_config, cluster_config)
   
-
 }
 
 #-----------

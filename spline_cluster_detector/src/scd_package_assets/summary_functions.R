@@ -333,7 +333,7 @@ plotly_heatmap <- function(
     heatmap_data,
     x = af(x), y = af(y), z = af(z),
     type = "heatmap",
-    hoverongaps = F,
+    hoverongaps = FALSE,
     hovertemplate = hovertext,
     colorbar = list(
       title = data.table::fifelse(logscale, "Log Count", "Count")
@@ -508,7 +508,6 @@ generate_ggplot_time_series <- function(
 generate_plotly_time_series <- function(
     time_series_data,
     ...) {
-
   time_series_plot <- plotly::plot_ly(
     data = time_series_data[order(date)],
     x = ~date,
