@@ -85,12 +85,9 @@ generate_zip_leaflet_data <- function(cluster_data, shape_data, distance_matrix)
   
   # generate the cluster centers frame, along with their constituent zip codes
   cluster_centers <- get_cluster_center_locations(cluster_data)
-  print(cluster_centers)
-  print(cluster_data$cluster_location_counts)
-
+  
   # merge the shape file to these cluster centers
   ld <- merge(shape_data, cluster_centers, by = "GEOID", all.x = TRUE)
-
 
   # merge individual location counts
   ld <- merge(
