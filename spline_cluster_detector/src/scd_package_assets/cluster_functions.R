@@ -62,7 +62,7 @@ generate_case_grids <- function(
 
   # make sure that date is of type date
   if (!"Date" %in% class(cases[["date"]])) {
-    cli::cli_abort("date column must of class Date or IDate")
+    cli::cli_abort("date column must be of class Date or IDate")
   }
 
   # match the baseline adjustment argument
@@ -373,7 +373,6 @@ generate_observed_expected <- function(
 #' @export
 #' @returns a frame containing rows of oe_grid that are candidate alert clusters
 add_spline_threshold <- function(oe_grid, spline_lookup = NULL) {
-
   if (is.null(spline_lookup)) {
     # use the default
     spline_lookup <- spline_01
@@ -715,7 +714,19 @@ add_location_counts <- function(cluster_list, cases) {
         date <= cluster_alert_table$detect_date[j] &
         location %in% clust_locs
     ] |>
-      _[, sum(count), location][order(location)]
+      _[, list(count = sum(count)), location][order(location)]
+
+    zero_cl <- setdiff(clust_locs, unique(location_counts$location))
+    if (length(zero_cl) > 0) {
+      location_counts <- rbind(
+        location_counts,
+        data.table::data.table(
+          location = zero_cl,
+          count = 0
+        )
+      )
+    }
+
     # add the current cluster center location to this filtered table
     location_counts[, target := cluster_alert_table$target[j]]
     data.table::setnames(location_counts, c("location", "count", "target"))
@@ -728,6 +739,21 @@ add_location_counts <- function(cluster_list, cases) {
     cluster_alert_table = cluster_alert_table,
     cluster_location_counts = cluster_location_counts
   )
+
+  nr_locs <- NULL
+
+  # check that nr_locations match
+  s <- cluster_alert_table[, list(target, nr_locs)][order(target)]
+  t <- cluster_location_counts[, list(nr_locs = .N), target][order(target)]
+  if (!identical(s, t)) {
+    cli::cli_abort(
+      paste0(
+        "When adding locations, the number of locations in cluster ",
+        "differs from number of locations in location counts frame"
+      )
+    )
+  }
+
   class(clusters) <- c(class(clusters), "clusters")
 
   clusters
@@ -755,7 +781,7 @@ add_location_counts <- function(cluster_list, cases) {
 #'   cluster size. Note that the units of the value default (miles) should be
 #'   the same unit as the values in the distance matrix
 #' @param baseline_adjustment one of four string options: "add_one" (default),
-#'   "add_one_gloabl", "add_test", or "none".  All methods except for "none"
+#'   "add_one_global", "add_test", or "none".  All methods except for "none"
 #'   will ensure that the log(obs/expected) is always defined (i.e. avoids
 #'   expected =0). For the default, this will add 1 to the expected for any
 #'   individual calculation if expected would otherwise be zero.
@@ -797,41 +823,106 @@ find_clusters <- function(
     post_cluster_min_count = 0,
     use_fast = TRUE,
     return_interim = FALSE) {
-
   baseline_adjustment <- match.arg(baseline_adjustment)
 
+  if (max_test_window_days <= 0) {
+    cli::cli_abort("Test interval/length must be positive")
+  }
+
+  interim_results <- list()
+
+  # Internal function to try expression, and add an error attribute
+  # to the interim results list; note that error returns NULL, but
+  # interim_results object is updated
+  handle_try <- function(expr, name) {
+    tryCatch(
+      {
+        result <- expr
+        interim_results[[name]] <<- result
+        result
+      },
+      error = function(e) {
+        attr(interim_results, "error") <<- list(
+          step = name,
+          message = e$message
+        )
+        NULL
+      }
+    )
+  }
+
+  report_error <- function() {
+    m <- paste0(
+      "Error at step ", attr(interim_results, "error")$step, ": ",
+      attr(interim_results, "error")$message
+    )
+    if (return_interim) {
+      cli::cli_alert_danger(text = m)
+      interim_results
+    } else {
+      cli::cli_abort(message = m)
+    }
+  }
 
   # 1. Get the baseline counts, the test interval counts, totals etc
-  case_grid_info <- generate_case_grids(
-    cases = cases,
-    detect_date = detect_date,
-    baseline_length = baseline_length,
-    max_test_window_days = max_test_window_days,
-    guard_band = guard_band,
-    baseline_adjustment = baseline_adjustment,
-    adj_constant = adj_constant
+  case_grid_info <- handle_try(
+    generate_case_grids(
+      cases = cases,
+      detect_date = detect_date,
+      baseline_length = baseline_length,
+      max_test_window_days = max_test_window_days,
+      guard_band = guard_band,
+      baseline_adjustment = baseline_adjustment,
+      adj_constant = adj_constant
+    ),
+    "case_grid_info"
   )
+
+  if (is.null(case_grid_info)) {
+    return(report_error())
+  }
 
   # 2. Get the nearby care information
-  nearby_case_info <- gen_nearby_case_info(
-    cg = case_grid_info,
-    distance_matrix = distance_matrix,
-    distance_limit = distance_limit
+  nearby_case_info <- handle_try(
+    gen_nearby_case_info(
+      cg = case_grid_info,
+      distance_matrix = distance_matrix,
+      distance_limit = distance_limit
+    ),
+    "nearby_case_info"
   )
+
+  if (is.null(nearby_case_info)) {
+    return(report_error())
+  }
+
 
   # 3. Get the observe/expected values
-  obs_expected_frame <- generate_observed_expected(
-    nearby_counts = nearby_case_info,
-    cases_grids = case_grid_info,
-    adjust = baseline_adjustment != "none",
-    adj_constant = adj_constant
+  obs_expected_frame <- handle_try(
+    generate_observed_expected(
+      nearby_counts = nearby_case_info,
+      cases_grids = case_grid_info,
+      adjust = baseline_adjustment != "none",
+      adj_constant = adj_constant
+    ),
+    "observed_expected"
   )
 
+  if (is.null(obs_expected_frame)) {
+    return(report_error())
+  }
+
   # 4. Get the spline information
-  obs_expected_frame_with_spline <- add_spline_threshold(
-    spline_lookup = spline_lookup,
-    oe_grid = obs_expected_frame
+  obs_expected_frame_with_spline <- handle_try(
+    add_spline_threshold(
+      spline_lookup = spline_lookup,
+      oe_grid = obs_expected_frame
+    ),
+    "obs_expected_filtered_via_spline"
   )
+  if (is.null(obs_expected_frame_with_spline)) {
+    return(report_error())
+  }
 
   observed <- NULL
   # limit the candidates to the min/max params
@@ -842,19 +933,36 @@ find_clusters <- function(
 
   # 5. Compress Clusters
   if (use_fast) {
-    compressed_clusters <- compress_clusters_fast(
-      cluster_alert_table = obs_expected_frame_with_spline,
-      distance_matrix = distance_matrix
+    compressed_clusters <- handle_try(
+      compress_clusters_fast(
+        cluster_alert_table = obs_expected_frame_with_spline,
+        distance_matrix = distance_matrix
+      ),
+      "compress_clusters_fast"
     )
   } else {
-    compressed_clusters <- compress_clusters(
-      cluster_alert_table = obs_expected_frame_with_spline,
-      distance_matrix = distance_matrix
+    compressed_clusters <- handle_try(
+      compress_clusters(
+        cluster_alert_table = obs_expected_frame_with_spline,
+        distance_matrix = distance_matrix
+      ),
+      "compress_clusters"
     )
   }
 
+  if (is.null(compressed_clusters)) {
+    return(report_error())
+  }
+
   # 6. Add counts of individual locations, each cluster.
-  result <- add_location_counts(compressed_clusters, cases)
+  result <- handle_try(
+    add_location_counts(compressed_clusters, cases),
+    "adding_location_counts"
+  )
+
+  if (is.null(result)) {
+    return(report_error())
+  }
 
   if (return_interim == TRUE) {
     return(list(

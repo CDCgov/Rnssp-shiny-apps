@@ -82,15 +82,12 @@ generate_leaflet_data <- function(
 # important that they return the same structure to the wrapper function
 
 generate_zip_leaflet_data <- function(cluster_data, shape_data, distance_matrix) {
+  
   # generate the cluster centers frame, along with their constituent zip codes
-  cluster_centers <- get_cluster_center_locations(
-    cluster_data,
-    distance_matrix
-  )
-
+  cluster_centers <- get_cluster_center_locations(cluster_data)
+  
   # merge the shape file to these cluster centers
   ld <- merge(shape_data, cluster_centers, by = "GEOID", all.x = TRUE)
-
 
   # merge individual location counts
   ld <- merge(
@@ -126,37 +123,50 @@ generate_county_leaflet_data <- function(cluster_data, shape_data, distance_matr
   return(ld)
 }
 
-# Helper function to generate the frame of cluster centers and their locations:
-get_cluster_center_locations <- function(cluster_data, distance_matrix) {
-  # unpack cluster_data
-  cluster_alert_table <- cluster_data$cluster_alert_table
-  # first convert the distance matrix to a data table
-  dm <- data.table(distance_matrix, keep.rownames = "target")
-
-  # merge the cluster_alert table
-  cluster_center_locations <-
-    dm[cluster_alert_table[, .(target, distance_value, nr_days = as.integer(detect_date - date + 1))],
-      on = "target"]
-
-  # melt it long
-  cluster_center_locations <- melt(cluster_center_locations,
-    id.var = c("target", "distance_value", "nr_days"))
-
-  # reduce to only those locations that are within the distance_value and select columns
-  cluster_center_locations <- cluster_center_locations[
-    value <= distance_value,
-    .(target, GEOID = variable, nr_days)
-  ]
-
-  # merge back to the cluster_alert_table
+# replace the previous with a simpler function
+get_cluster_center_locations <- function(cluster_data) {
+  
   cluster_center_locations <- merge(
-    cluster_center_locations,
-    cluster_alert_table[, .(target, observed, expected, nr_locs)],
-    by = "target"
+    cluster_data$cluster_alert_table[
+      ,.(target, nr_days = as.integer(detect_date-date+1), observed, expected, nr_locs)
+    ],
+    cluster_data$cluster_location_counts[, .(target, GEOID=location)], 
+    by = c("target")
   )
-
-  return(cluster_center_locations)
+  
 }
+
+# # Helper function to generate the frame of cluster centers and their locations:
+# get_cluster_center_locations <- function(cluster_data, distance_matrix) {
+#   # unpack cluster_data
+#   cluster_alert_table <- cluster_data$cluster_alert_table
+#   # first convert the distance matrix to a data table
+#   dm <- data.table(distance_matrix, keep.rownames = "target")
+# 
+#   # merge the cluster_alert table
+#   cluster_center_locations <-
+#     dm[cluster_alert_table[, .(target, distance_value, nr_days = as.integer(detect_date - date + 1))],
+#       on = "target"]
+# 
+#   # melt it long
+#   cluster_center_locations <- melt(cluster_center_locations,
+#     id.var = c("target", "distance_value", "nr_days"))
+# 
+#   # reduce to only those locations that are within the distance_value and select columns
+#   cluster_center_locations <- cluster_center_locations[
+#     value <= distance_value,
+#     .(target, GEOID = variable, nr_days)
+#   ]
+# 
+#   # merge back to the cluster_alert_table
+#   cluster_center_locations <- merge(
+#     cluster_center_locations,
+#     cluster_alert_table[, .(target, observed, expected, nr_locs)],
+#     by = "target"
+#   )
+# 
+#   return(cluster_center_locations)
+# }
 
 prepare_labels_and_colors <- function(ld, level = c("zip", "county")) {
   level <- match.arg(level)
