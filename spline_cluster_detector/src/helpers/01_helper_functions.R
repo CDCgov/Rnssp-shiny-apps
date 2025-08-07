@@ -75,7 +75,7 @@ get_custom_url_data <- function(url, profile) {
 
   # There are two checks that we will  make directly
   # The first is that the url is a tableBuilder URL
-  if (!grepl("tableBuilder", url, ignore.case = T)) {
+  if (!grepl("tableBuilder", url, ignore.case = TRUE)) {
     cli::cli_abort("Custom URL must be a tableBuilder query.")
   }
 
@@ -114,7 +114,7 @@ get_custom_url_data <- function(url, profile) {
   # Now, we have to prepare this raw data. We will assume it is "table",
   # but we have to guess the geography level.. What about all the other
   # characteristic we need for clustering!.. dates, baseline length, etc
-  res_guess <- fifelse(grepl("zip", url, ignore.case = T), "zip", "county")
+  res_guess <- fifelse(grepl("zip", url, ignore.case = TRUE), "zip", "county")
 
   data <- prepare_raw_data(data, "table", res_guess)
 
@@ -219,7 +219,7 @@ deduplicate_datadetails <- function(
 
   setDT(data) |>
     # 1. filter out certain types
-    _[!grepl(excl_fac_types, FacilityType, ignore.case = T)] |>
+    _[!grepl(excl_fac_types, FacilityType, ignore.case = TRUE)] |>
     # 2. deduplicate
     _[order(Date), .SD[1], .(Visit_ID, Hospital)]
 }
@@ -340,7 +340,7 @@ check_and_standarize_data_cols <- function(data) {
 
   # 3. If there are four columns, we are going to sum over that extra column
   if (ncol(data) == 4) {
-    data <- data[, .(count = sum(count, na.rm = T)), by = c("date", "location")]
+    data <- data[, .(count = sum(count, na.rm = TRUE)), by = c("date", "location")]
   }
 
   setcolorder(data, c("location", "count", "date"))
@@ -468,7 +468,7 @@ get_base_vals <- function(use_nssp, profile=NULL) {
       
       setDT(combinedCategories)
       ccdd_cats <- combinedCategories[grepl("^CCDD", combined_category), combined_category]
-      ccdd_cats <- gsub("^CCDD ", "", ccdd_cats, perl=T)
+      ccdd_cats <- gsub("^CCDD ", "", ccdd_cats, perl = TRUE)
       syndromes <- combinedCategories[grepl("^SYNDROME", combined_category), combined_category]
       syndromes <- gsub("SYNDROME ", "", syndromes)
       subsyndromes <- combinedCategories[grepl("^SUBSYNDROME", combined_category), combined_category]
@@ -489,7 +489,7 @@ get_base_vals <- function(use_nssp, profile=NULL) {
 # Function to get display name from fips
 gen_display_name_from_fips <- function(fips, st=NULL, default=NA) {
   l <- prepare_county_sf_for_url(st = st)
-  result = l[data.table::CJ(GEOID = fips, sorted = F), on = "GEOID", url_name]
+  result = l[data.table::CJ(GEOID = fips, sorted = FALSE), on = "GEOID", url_name]
   fifelse(is.na(result), default, result)
 }
 
