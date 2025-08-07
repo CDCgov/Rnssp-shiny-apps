@@ -468,7 +468,7 @@ get_base_vals <- function(use_nssp, profile=NULL) {
       
       setDT(combinedCategories)
       ccdd_cats <- combinedCategories[grepl("^CCDD", combined_category), combined_category]
-      ccdd_cats <- gsub("CCDD ", "", ccdd_cats)
+      ccdd_cats <- gsub("^CCDD ", "", ccdd_cats, perl=T)
       syndromes <- combinedCategories[grepl("^SYNDROME", combined_category), combined_category]
       syndromes <- gsub("SYNDROME ", "", syndromes)
       subsyndromes <- combinedCategories[grepl("^SUBSYNDROME", combined_category), combined_category]
