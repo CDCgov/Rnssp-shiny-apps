@@ -50,8 +50,9 @@ sb_ll <- list(
   ),
   data_load_drange = list(
     l = "Data Date Range",
-    m = "Choose a date range for api call. Default is 120 days. We recommend a date
-      range sufficient to allow a 7 date test interval preceded by 90 days of baseline"
+    m = paste0("Choose a date range for api call. Default is 120 days. We recommend a date
+      range sufficient to allow a 7 date test interval preceded by 90 days of baseline. The
+      maximum date range cannot exceed ", MAX_DATE_RANGE)
     ),
   end_date = list(
     l = "End Date",
@@ -106,8 +107,6 @@ dl_sidebar_ui <- function(id) {
       label = labeltt(sb_ll[["data_load_drange"]]),
       end = Sys.Date() - 7,
       start = Sys.Date() - 126
-      # min = Sys.Date()-MAX_DATE_RANGE,
-      # max = Sys.Date()
     )
   )
 

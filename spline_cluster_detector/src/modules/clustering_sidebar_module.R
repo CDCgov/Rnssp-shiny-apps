@@ -48,42 +48,6 @@ clust_sidebar_ui <- function(id) {
   ns <- NS(id)
 
 
-  # basic_acc_panel <- accordion_panel(
-  #   value="basic_acc_panel",
-  #   title="Basic Options",
-  #   radioButtons(
-  #     inputId = ns("radius"),
-  #     label = labeltt(clsb_ll[["radius"]]),
-  #     choices = c(15, 20, 25, 50, 100, 200),
-  #     selected = 15,
-  #     inline = TRUE
-  #   ),
-  #   dateInput(
-  #     inputId = ns("end_date"),
-  #     label = labeltt(clsb_ll[["end_date"]]),
-  #     value = Sys.Date() - 7
-  #   ),
-  #   sliderInput(
-  #     inputId = ns("test_length"),
-  #     label = labeltt(clsb_ll[["test_length"]]),
-  #     min = 1,
-  #     max = 14,
-  #     value = 7
-  #   ),
-  #   numericInput(
-  #     inputId = ns("baseline_length"),
-  #     label = labeltt(clsb_ll[["baseline_length"]]),
-  #     value = 90,
-  #     min = 7,
-  #     max = 365
-  #   )
-  # )
-
-  # us_matrix_checkbox <- checkboxInput(
-  #   inputId = ns("us_matrix"),
-  #   label = labeltt(clsb_ll[["us_matrix"]]),
-  #   value=F
-  # )
   spline_selector <- selectInput(
     inputId = ns("spline"),
     label = labeltt(clsb_ll[["spline"]]),
@@ -129,9 +93,14 @@ clust_sidebar_ui <- function(id) {
         radioButtons(
           inputId = ns("radius"),
           label = labeltt(clsb_ll[["radius"]]),
-          choices = c(15, 20, 25, 50, 100, 200),
+          choices = c(15, 20, 25, 50, 100, 200, "Other"),
           selected = 15,
           inline = TRUE
+        ),
+        conditionalPanel(
+          condition = "input.radius=='Other'",
+          numericInput(inputId = ns("custom_radius"), label="Custom Radius", value=50, min=1), 
+          ns = ns
         ),
         dateInput(
           inputId = ns("end_date"),
@@ -181,7 +150,14 @@ clust_sidebar_server <- function(id, results, dc, cc) {
       # Set Cluster Config Global Reactive Values
       observe(cc$spline_lookup <- SPLINE_LIBRARY[[input$spline]])
       observe(cc$spline_value <- input$spline)
-      observe(cc$radius <- as.numeric(input$radius))
+      observe({
+        req(input$radius)
+        cc$radius <- fifelse(
+          input$radius == "Other",
+          as.numeric(input$custom_radius),
+          as.numeric(input$radius)
+        )
+      })
       observe(cc$end_date <- input$end_date)
       observe(cc$baseline_length <- as.numeric(input$baseline_length))
       observe(cc$test_length <- as.numeric(input$test_length))
