@@ -35,11 +35,13 @@ ui <- page(
     data_loader_ui("data_loader"),
     clustering_ui("clustering"),
     nav_panel(
+      
       "Documentation",
-      tags$iframe(src = "documentation.html",
-        style  = "width: 100%; height: 800px; border: none;",
-        seamless = "seamless"
-      )
+      # tags$iframe(src = "documentation.html",
+      #   style  = "width: 100%; height: 800px; border: none;",
+      #   seamless = "seamless"
+      # )
+      includeMarkdown('src/documentation/documentation.Rmd')
     ),
     nav_spacer(),
     nav_item(report_ui("report")),

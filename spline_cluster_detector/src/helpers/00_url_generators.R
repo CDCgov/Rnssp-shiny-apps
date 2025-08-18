@@ -87,7 +87,8 @@ generate_url <- function(
     inject_site = TRUE,
     data_type = c("table", "details"),
     data_source = c("patient", "facility"),
-    fields = NULL
+    fields = NULL, 
+    has_been_e = TRUE
     ) {
 
   state_value <- toupper(state_value)
@@ -155,7 +156,8 @@ generate_url <- function(
     syndrome_cat = synd_cat,
     res = res,
     data_type = data_type,
-    data_source = data_source
+    data_source = data_source, 
+    has_been_e = has_been_e
   )
 
   # update the dates
@@ -235,7 +237,8 @@ gen_url <- function(
     syndrome_cat = c("ccdd", "synd", "subsynd"),
     res = c("zip", "county"),
     data_type = c("table", "details"),
-    data_source = c("patient", "facility")
+    data_source = c("patient", "facility"),
+    has_been_e = TRUE
     ) {
 
   data_type <- match.arg(data_type)
@@ -288,7 +291,7 @@ gen_url <- function(
   # -------------------------------------------------
   # Base URL
   # -------------------------------------------------
-  base_url <- get_base_url(data_type = data_type)
+  base_url <- get_base_url(data_type = data_type, has_been_e = has_been_e)
 
   # -------------------------------------------------
   # Paste it all together, and return
@@ -349,26 +352,28 @@ get_datasource_structure <- function(data_type = c("table", "details"),
 
 }
 
-get_base_url <- function(data_type = c("table", "details")) {
+get_base_url <- function(data_type = c("table", "details"), has_been_e = TRUE) {
   data_type <- match.arg(data_type)
   base_start <- format(Sys.Date() - 7, "%d%b%Y")
   base_end <- format(Sys.Date() - 7 - 90, "%d%b%Y")
 
   if (data_type == "table") {
-    return(
+    url <- 
       paste0(
         "https://essence.syndromicsurveillance.org/nssp_essence/api/tableBuilder?",
         "startDate=", base_start, "&endDate=", base_end, "&percentParam=noPercent&aqtTarget=TableBuilder&",
-        "detector=probrepswitch&timeResolution=daily&hasBeenE=1&rowFields=timeResolution&"
+        "detector=probrepswitch&timeResolution=daily&rowFields=timeResolution&"
       )
-    )
   } else {
-    return(
+    url <- 
       paste0(
         "https://essence.syndromicsurveillance.org/nssp_essence/api/dataDetails?",
         "startDate=", base_start, "&endDate=", base_end, "&percentParam=noPercent&aqtTarget=DataDetails&",
-        "detector=probrepswitch&timeResolution=daily&hasBeenE=1&"
+        "detector=probrepswitch&timeResolution=daily&"
       )
-    )
   }
+  if(has_been_e == TRUE) {
+    url <- paste0(url, "hasBeenE=1&")
+  }
+  return(url)
 }

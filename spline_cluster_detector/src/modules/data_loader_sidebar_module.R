@@ -53,23 +53,27 @@ sb_ll <- list(
     m = "Choose a date range for api call. Default is 120 days. We recommend a date
       range sufficient to allow a 7 date test interval preceded by 90 days of baseline"
     ),
-    end_date = list(
-      l = "End Date",
-      m = "Final/Last date of the test period"
-    ),
-    test_length = list(
-      l = "Max Cluster Days",
-      m = "Length in days of the test interval; equivalently, the maximum number of days for the cluster"
-    ),
-    baseline_length = list(
-      l = "Baseline Length",
-      m = paste0("Number of days in the baseline interval (min 1, max ", MAX_DATE_RANGE, ")")
-    ),
-    dedup = list(
-      l = "De-duplicate?",
-      m = "De-duplicates encounters by taking the first (chronological) encounter within VisitID and Hospital.
-      The default behavior is to NOT de-duplicate."
-    )
+  end_date = list(
+    l = "End Date",
+    m = "Final/Last date of the test period"
+  ),
+  test_length = list(
+    l = "Max Cluster Days",
+    m = "Length in days of the test interval; equivalently, the maximum number of days for the cluster"
+  ),
+  baseline_length = list(
+    l = "Baseline Length",
+    m = paste0("Number of days in the baseline interval (min 1, max ", MAX_DATE_RANGE, ")")
+  ),
+  dedup = list(
+    l = "De-duplicate?",
+    m = "De-duplicates encounters by taking the first (chronological) encounter within VisitID and Hospital.
+    The default behavior is to NOT de-duplicate."
+  ),
+  has_been_e = list(
+    l = "Emergency (Has Been Emergency)",
+    m = "Query defaults to True/Yes, but this can be toggled off"
+  )
 )
 
 
@@ -107,6 +111,12 @@ dl_sidebar_ui <- function(id) {
     )
   )
 
+  has_been_e_toggle <- input_switch(
+    id = ns("has_been_e"),
+    label = labeltt(sb_ll[["has_been_e"]]),
+    value = TRUE
+  )
+  
   data_type_button <- tagList(
     radioButtons(
       inputId = ns("data_type"),
@@ -142,6 +152,7 @@ dl_sidebar_ui <- function(id) {
         multiple = FALSE, open = FALSE,
         accordion_panel(
           "Advanced Options",
+          has_been_e_toggle,
           data_type_button,
           data_source_button
           # us_matrix_checkbox
@@ -241,6 +252,7 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
 
       # Set Data Config Global Reactive Values
       observe(dc$USE_NSSP <- input$local_or_nssp == "nssp")
+      observe(dc$has_been_e <- input$has_been_e)
       observe(dc$custom_url_valid <- custom_url_valid() == "TRUE")
       observe(dc$data_type <- input$data_type)
       observe(dc$data_source <- input$data_source)
@@ -482,7 +494,8 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
           res = dc$res,
           data_type = dc$data_type,
           data_source = dc$data_source,
-          fields = fields
+          fields = fields,
+          has_been_e = input$has_been_e
         )
       })
 
@@ -587,18 +600,17 @@ hide_show_sidebar_elements <- function(use_nssp, url_builder, file_uploaded) {
     showElement("options_accordion")
 
     if (url_builder == "ad_hoc") {
-      hideElement("data_type")
-      hideElement("data_source")
+      hideElement("options_accordion")
       hideElement("data_load_drange")
     } else {
-      showElement("data_type")
-      showElement("data_source")
+      showElement("options_accordion")
       showElement("data_load_drange")
     }
   } else {
     showElement("local_file_upload")
-    hideElement("data_type")
-    hideElement("data_source")
+    hideElement("options_accordion")
+    # hideElement("data_type")
+    # hideElement("data_source")
 
     if (file_uploaded) {
       showElement("main_accordion")
