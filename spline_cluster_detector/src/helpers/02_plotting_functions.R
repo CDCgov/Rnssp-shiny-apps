@@ -244,20 +244,24 @@ generate_leaflet_plot <- function(
     leaflet_data,
     level = c("zip", "county"),
     color_options = list(
-      palette = c("plasma"),
+      palette = "plasma",
       reverse = TRUE,
       gradient_fraction = 0.5
     ),
-    ...) {
+    ...
+) {
+  level <- match.arg(level)
   
-  level = match.arg(level)
-  
+  # --- Step 1: Get cluster center labels safely ---
   cluster_center_labels <- attr(leaflet_data, "cluster_center_labels")
+  if (is.null(cluster_center_labels) || length(cluster_center_labels) == 0) {
+    stop("Missing or empty 'cluster_center_labels' attribute in leaflet_data.")
+  }
   
-  # Get labels
-  labels <- prepare_labels(leaflet_data,level = level)
+  # --- Step 2: Prepare popup/hover labels for polygons ---
+  labels <- prepare_labels(leaflet_data, level = level)
   
-  # Get colors
+  # --- Step 3: Generate colors for the cluster labels ---
   default_color_options <- list(
     palette = "plasma",
     reverse = TRUE,
@@ -272,26 +276,27 @@ generate_leaflet_plot <- function(
     )
   )
   
-  # Subset rows that correspond to cluster centers only
-  center_names <- leaflet_data |>
-    dplyr::filter(label_center %in% cluster_center_labels) |>
-    dplyr::distinct(label_center, NAME) |>
-    dplyr::arrange(factor(label_center, levels = cluster_center_labels))
+  # --- Step 4: Get user-friendly names for tooltips (e.g., county names) ---
+  # Ensure center_names and colors are aligned with cluster_center_labels
+  center_info <- leaflet_data |>
+    dplyr::filter(GEOID %in% cluster_center_labels) |>
+    dplyr::distinct(GEOID, NAME) |>
+    dplyr::mutate(label_center = factor(GEOID, levels = cluster_center_labels)) |>
+    dplyr::arrange(label_center)
   
-  # Create a named vector for labeling
-  legend_labels <- setNames(as.character(center_names$NAME), center_names$label_center)
+  # Defensive check
+  if (nrow(center_info) != length(cluster_center_labels)) {
+    stop("Mismatch between cluster_center_labels and available NAME values in leaflet_data.")
+  }
   
+  # Step 5 - Build segment divs with tooltips
+  segment_divs <- paste(sprintf(
+    "<div title='%s' style='flex: 1; height: 100%%; background-color: %s; cursor: help;'></div>",
+    center_info$NAME,
+    colors(as.character(center_info$label_center))
+  ), collapse = "\n")
   
-  gradient_colors <- colors(cluster_center_labels)
-  gradient_css <- paste(gradient_colors, collapse = ", ")
-  
-  html = sprintf("
-    <div style='text-align: center; font-size: 12px; font-family: sans-serif;'>
-      <div style='font-weight: bold; margin-bottom: 4px;'>Clusters Ordered by Date and Size</div>
-      <div style='width: 200px; height: 20px; background: linear-gradient(to right, %s); border: 1px solid #ccc;'></div>
-    </div>
-  ", gradient_css)
-  
+  # --- Step 6: Assemble the leaflet plot ---
   p <- leaflet() |>
     addPolygons(
       data = leaflet_data,
@@ -304,36 +309,41 @@ generate_leaflet_plot <- function(
     ) |>
     addControl(
       html = htmltools::HTML(sprintf("
-    <style>
-      .leaflet-control.info.legend {
-        background: transparent !important;
-        box-shadow: none !important;
-        border: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-      }
-    </style>
+        <style>
+          .leaflet-control.info.legend {
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+        </style>
 
-    <div class='legend-container' style='text-align: center; font-family: sans-serif;'>
-      <div class='text-body fw-bold mb-1' style='font-size: 12px;'>
-        Clusters Ordered by Date and Size
-      </div>
-      <div style='
-        width: 200px;
-        height: 20px;
-        background: linear-gradient(to right, %s);
-        border: 1px solid var(--bs-border-color);
-        border-radius: 4px;
-      '></div>
-    </div>
-  ", gradient_css)),
+        <div class='legend-container' style='text-align: center; font-family: sans-serif;'>
+          <div class='text-body fw-bold mb-1' style='font-size: 12px;'>
+            Clusters Ordered by Date and Size
+          </div>
+          <div style='
+            width: 200px;
+            height: 20px;
+            display: flex;
+            border: 1px solid var(--bs-border-color);
+            border-radius: 4px;
+            overflow: hidden;
+          '>
+            %s
+          </div>
+        </div>
+      ", segment_divs)),
       position = "topright"
-    ) |> 
+    ) |>
     leaflet.extras::setMapWidgetStyle(list(background = "var(--bs-body-bg)")) |>
-    #leaflet.extras::setMapWidgetStyle(list(background = "white")) |>
     leaflet.extras::addFullscreenControl() |>
     leaflet.extras::addResetMapButton()
   
-
-  return(list(plot = p, labels = labels, colors = colors))
+  return(list(
+    plot = p,
+    labels = labels,
+    colors = colors
+  ))
 }
