@@ -8,17 +8,27 @@ cluster_map_ui <- function(id) {
   nav_panel(
     id = ns("cluster_map_panel"),
     title = "Cluster Map",
-    hidden(card(
-      id = ns("map_card"),
-      min_height = map_height,
-      full_screen = TRUE,
-      card_header(htmlOutput(outputId = ns("map_summary")), class = "bg-primary"),
-      withSpinner(
-        leafletOutput(ns("clustermap"), height = map_height)
-      ),
-      card_footer(htmlOutput(outputId = ns("cluster_psa")))
-    )
-  ))
+    layout_sidebar(
+      hidden(card(
+        id = ns("map_card"),
+        min_height = map_height,
+        full_screen = TRUE,
+        card_header(htmlOutput(outputId = ns("map_summary")), class = "bg-primary"),
+        withSpinner(
+          leafletOutput(ns("clustermap"), height = map_height)
+        ),
+        card_footer(htmlOutput(outputId = ns("cluster_psa")))
+      )), 
+      sidebar = sidebar(
+        selectInput(ns("palette"), label = "Palette", 
+                    choices=c("Blues", "Greens", "Purples","plasma", "inferno", "magma", "viridis", "cividis"),
+                    selected = "Blues"
+        ),
+        input_switch(ns("palette_reverse"), label = "Reverse Palette?", value=TRUE),
+        numericInput(ns("gradient_fraction"), label="Gradient Fraction", value=0.5, min=0, max=1)
+      )
+    ) 
+  )
 }
 
 cluster_map_server <- function(id, results, dc, cc) {
@@ -62,7 +72,15 @@ cluster_map_server <- function(id, results, dc, cc) {
       # Map reactive object
       cluster_map <- reactive({
         if (!is.null(nrow(map_data()))) {
-          generate_leaflet_plot(map_data(), level = isolate(dc$res))[["plot"]]
+          generate_leaflet_plot(
+            map_data(),
+            level = isolate(dc$res),
+            color_options = list(
+              palette = input$palette, 
+              reverse = input$palette_reverse,
+              gradient_fraction = input$gradient_fraction
+            )
+          )[["plot"]]
         }
       })
 
