@@ -110,17 +110,20 @@ server <- function(input, output, session) {
   session$onFlushed(function() {
     runjs("$('a[data-value=\"clustering\"]').addClass('disabled-tab');")
   }, once = TRUE)
-  
+
+  # This else is not working  
   observe({
-    runjs("$('a[data-value=\"clustering\"]').removeClass('disabled-tab');")
-  }) |> bindEvent(ingest())
-  
-  observe({
-    runjs("$('a[data-value=\"clustering\"]').addClass('disabled-tab');")
-    updateTabsetPanel(inputId = "main_navbar", selected="data_loader")
-  }) |> bindEvent(reactiveValuesToList(data_config))
-  
-  
+    if(!is.null(results$records)) {
+      print("enabling the clustering tab")
+      runjs("$('a[data-value=\"clustering\"]').removeClass('disabled-tab');")
+    } else {
+      print("disabling the clustering tab")
+      runjs("$('a[data-value=\"clustering\"]').addClass('disabled-tab');")
+      updateTabsetPanel(inputId = "main_navbar", selected="data_loader")
+    }
+  }) |> bindEvent(results$records)
+
+
   data_loader_server("data_loader", results, data_config, cluster_config, profile, valid_profile, ingest)
   clustering_server("clustering", results, data_config, cluster_config, profile)
   report_server("report", results, data_config, cluster_config)

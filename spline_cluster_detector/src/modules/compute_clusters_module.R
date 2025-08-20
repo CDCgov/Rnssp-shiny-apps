@@ -163,7 +163,7 @@ compute_clusters_server <- function(id, results, dc, cc, trigger, parent_session
           dom_value <- fifelse(nrow(cd) < 10, "t", "tp")
           
           # Add a sort order
-          setorderv(cd, c("Cluster Date", "Observed", "p-value"))
+          setorderv(cd, c("Cluster Date", "Observed", "p-value"),order = c(1,-1,1))
 
           cd[, names(.SD) := lapply(.SD, \(s) round(s, 2)), .SDcols = is.numeric]
           cd[, intersected_locs := paste0(

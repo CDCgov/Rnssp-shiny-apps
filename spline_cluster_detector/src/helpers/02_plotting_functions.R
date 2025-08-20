@@ -156,45 +156,49 @@ get_cluster_center_locations <- function(cluster_data) {
   
 }
 
-scaled_viridis_palette_from_labels <- function(
+scaled_palette_from_labels <- function(
     labels,
-    palette = c("plasma", "inferno", "magma", "viridis", "cividis"),
+    palette = c("Blues", "Greens", "Purples","plasma", "inferno", "magma", "viridis", "cividis"),
     gradient_fraction = 1.0,
     reverse = TRUE
 ) {
-  # Validate and select the palette
   palette <- match.arg(palette)
-  palette_fun <- get(palette, envir = asNamespace("viridisLite"))
   
   n_colors <- length(labels)
-  
-  # Generate a finely sampled gradient
   oversample_n <- 100
-  full_gradient <- palette_fun(oversample_n)
   
-  # Optionally reverse before slicing
+  if (palette %in% rownames(RColorBrewer::brewer.pal.info)) {
+    # Use RColorBrewer
+    max_colors <- RColorBrewer::brewer.pal.info[palette, "maxcolors"]
+    base_colors <- RColorBrewer::brewer.pal(min(max_colors, 9), palette)
+    full_gradient <- colorRampPalette(base_colors)(oversample_n)
+  } else {
+    # Use viridisLite
+    palette_fun <- get(palette, envir = asNamespace("viridisLite"))
+    full_gradient <- palette_fun(oversample_n)
+  }
+  
   if (reverse) {
     full_gradient <- rev(full_gradient)
   }
   
-  # Slice the specified fraction of the gradient
+  # Slice fraction of the gradient
   slice_end <- ceiling(oversample_n * gradient_fraction)
   sliced_gradient <- full_gradient[1:slice_end]
   
-  # Sample evenly spaced colors from the sliced portion
+  # Sample final colors
   sampled_indices <- round(seq(1, length(sliced_gradient), length.out = n_colors))
   final_colors <- sliced_gradient[sampled_indices]
   
   return(final_colors)
 }
 
-
 prepare_colors <- function(cluster_center_labels, ...) {
   
   color_args = list(...)
 
   colors <- do.call(
-    scaled_viridis_palette_from_labels,
+    scaled_palette_from_labels,
     c(list(labels = cluster_center_labels),color_args)
   )
 
@@ -244,7 +248,7 @@ generate_leaflet_plot <- function(
     leaflet_data,
     level = c("zip", "county"),
     color_options = list(
-      palette = "plasma",
+      palette = "Blues",
       reverse = TRUE,
       gradient_fraction = 0.5
     ),

@@ -650,10 +650,10 @@ create_syndrome_acc_panel <- function(ns, cats) {
 # Helper function to check validity of the custom url
 check_url_validity <- function(url, states, dates) {
   # Some validity checks:
-  if (length(states) == 0) {
-    validity_result <- "No Counties or Zip Codes Detected"
-  } else if (grepl("tableBuilder", url) == FALSE) {
+  if (grepl("tableBuilder", url) == FALSE) {
     validity_result <- "Must be tableBuilder URL"
+  } else if (length(states) == 0) {
+    validity_result <- "No Counties or Zip Codes Detected"
   } else if (grepl("[/]csv[?]", url)) {
     validity_result <- "Cannot be a csv url / must be json"
   } else if (is.null(dates) || length(dates) != 2 || is.na(dates[["start"]]) || is.na(dates[["end"]])) {
