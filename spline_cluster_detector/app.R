@@ -65,7 +65,6 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------
   # Global Reactives for Data Configuration
   # ----------------------------------------------------------------------
-  ingest <- reactiveVal()
   
   data_config <- reactiveValues(
     # basic data characteristics
@@ -111,20 +110,18 @@ server <- function(input, output, session) {
     runjs("$('a[data-value=\"clustering\"]').addClass('disabled-tab');")
   }, once = TRUE)
 
-  # This else is not working  
+  # Turn the clustering tab on when records is not null; else off
   observe({
     if(!is.null(results$records)) {
-      print("enabling the clustering tab")
       runjs("$('a[data-value=\"clustering\"]').removeClass('disabled-tab');")
     } else {
-      print("disabling the clustering tab")
       runjs("$('a[data-value=\"clustering\"]').addClass('disabled-tab');")
       updateTabsetPanel(inputId = "main_navbar", selected="data_loader")
     }
   }) |> bindEvent(results$records)
 
 
-  data_loader_server("data_loader", results, data_config, cluster_config, profile, valid_profile, ingest)
+  data_loader_server("data_loader", results, data_config, cluster_config, profile, valid_profile)
   clustering_server("clustering", results, data_config, cluster_config, profile)
   report_server("report", results, data_config, cluster_config)
   

@@ -24,7 +24,7 @@ data_loader_ui <- function(id) {
 }
 
 
-data_loader_server <- function(id, results, data_config, cluster_config, profile, valid_profile, ingest) {
+data_loader_server <- function(id, results, data_config, cluster_config, profile, valid_profile) {
   moduleServer(
     id,
     function(input, output, session) {
@@ -40,8 +40,7 @@ data_loader_server <- function(id, results, data_config, cluster_config, profile
       #   Button Click Reactive
       # ---------------------------------------------
       ingest_btn_click <- reactive(input$ingest_btn)
-      observe(ingest(ingest_btn_click()))
-
+      
       # ---------------------------------------------
       # Clear critical objects if data_config$USE_NSSP changes
       # ---------------------------------------------
