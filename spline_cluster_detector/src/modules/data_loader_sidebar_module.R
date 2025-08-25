@@ -414,6 +414,10 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
             toupper(unique(extract_locations_from_url(dc$custom_url, res_guess))),
             res_guess
           )
+          
+          # We should only update the states if states is non-empty (it could
+          # be empty if this is a data details query)
+          if(is.null(states)) states = c(state.abb, "DC")
 
           choices <- state.name[which(state.abb %in% states)]
           if ("DC" %in% states) {
@@ -457,8 +461,7 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
 
         tryCatch(
           {
-            # new_url = Rnssp::change_dates(
-            new_url <- inject_dates_into_url(
+             new_url <- inject_dates_into_url(
               dc$custom_url,
               start_date = input$url_date_change[1],
               end_date = input$url_date_change[2]
@@ -649,10 +652,42 @@ create_syndrome_acc_panel <- function(ns, cats) {
 
 # Helper function to check validity of the custom url
 check_url_validity <- function(url, states, dates) {
-  # Some validity checks:
-  if (grepl("tableBuilder", url) == FALSE) {
-    validity_result <- "Must be tableBuilder URL"
-  } else if (length(states) == 0) {
+  
+  # find out if this is tableBuilder or dataDetails custom url
+  is_table_builder <- grepl("tableBuilder", url)
+  is_data_details <- grepl("dataDetails", url)
+  
+  if(is_table_builder) validity_result <- check_table_builder_url_validity(
+    url, states, dates
+  ) else if(is_data_details) validity_result <- check_data_details_url_validity(
+    url, dates
+  ) else {
+    validity_result <- "Must be either tableBuilder or dataDetails url"
+  }
+  # return the message
+  validity_result
+}
+
+check_data_details_url_validity <- function(url, dates) {
+  
+  if (grepl("[/]csv[?]", url)) {
+    validity_result <- "Cannot be a csv url / must be json"
+  } else if (is.null(dates) || length(dates) != 2 || is.na(dates[["start"]]) || is.na(dates[["end"]])) {
+    validity_result <- "Start and/or End Date missing, null, or malformed"
+  } else if (dates[["start"]] > dates[["end"]]) {
+    validity_result <- "End date is before start date"
+  } else if ((dates[["end"]] - dates[["start"]]) > MAX_DATE_RANGE) {
+    validity_result <- paste0("Start and End date interval cannot exceed ", MAX_DATE_RANGE, " days")
+  } else {
+    validity_result <- "TRUE"
+  }
+  # return the message
+  validity_result
+}
+
+check_table_builder_url_validity <- function(url, states, dates) {
+  
+  if (length(states) == 0) {
     validity_result <- "No Counties or Zip Codes Detected"
   } else if (grepl("[/]csv[?]", url)) {
     validity_result <- "Cannot be a csv url / must be json"

@@ -187,7 +187,7 @@ clust_sidebar_server <- function(id, results, dc, cc) {
             ),
             sliderInput(
               ns("filter_age"), "Age",
-              min = 0, max = 100, value = c(0, 120)
+              min = 0, max = 120, value = c(0, 120)
             )
           )
         )
