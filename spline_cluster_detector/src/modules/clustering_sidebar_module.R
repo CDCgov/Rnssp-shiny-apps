@@ -111,7 +111,7 @@ clust_sidebar_ui <- function(id) {
           inputId = ns("test_length"),
           label = labeltt(clsb_ll[["test_length"]]),
           min = 1,
-          max = 28,
+          max = 90,
           value = 7
         ),
         numericInput(
@@ -189,9 +189,11 @@ clust_sidebar_server <- function(id, results, dc, cc) {
               ns("filter_age"), "Age",
               min = 0, max = 120, value = c(0, 120)
             ),
-            selectizeInput(
+            checkboxGroupInput(
               ns("filter_facilitytype"), "Facility Type",
-              choices = unique(results$data_details$FacilityType)
+              choices = unique(results$data_details$FacilityType),
+              selected = unique(results$data_details$FacilityType),
+              inline = TRUE
             )
           )
         )
