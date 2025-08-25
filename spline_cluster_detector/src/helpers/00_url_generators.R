@@ -74,6 +74,12 @@ valid_details_fields <- c(
   "AgeGroup"
 )
 
+DEFAULT_BASE_FIELDS <-  c(
+  "Region", "State", "Date", "ZipCode",
+  "HospitalRegion", "FacilityType", "C_BioSense_ID", "Visit_ID", "Hospital",
+  "Age", "Sex"
+)
+
 
 # Function creates a url to pass to API
 # If all fields desired, pass "all"
@@ -118,11 +124,7 @@ generate_url <- function(
     if (!is.null(fields) && tolower(fields)[1] == "all") fields <- valid_details_fields
 
     # Now, make sure whatever is passed has our key fields included
-    base_fields <-  c(
-      "Region", "State", "Date", "ZipCode",
-      "HospitalRegion", "FacilityType", "C_BioSense_ID", "Visit_ID", "Hospital",
-      "Age", "Sex"
-    )
+    base_fields <-  DEFAULT_BASE_FIELDS
 
     fields <- base::union(base_fields, fields)
 

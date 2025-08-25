@@ -188,6 +188,10 @@ clust_sidebar_server <- function(id, results, dc, cc) {
             sliderInput(
               ns("filter_age"), "Age",
               min = 0, max = 120, value = c(0, 120)
+            ),
+            selectizeInput(
+              ns("filter_facilitytype"), "Facility Type",
+              choices = unique(results$data_details$FacilityType)
             )
           )
         )
@@ -214,11 +218,12 @@ clust_sidebar_server <- function(id, results, dc, cc) {
 
         filters <- c(
           paste0("between(Age,", input$filter_age[1], ",", input$filter_age[2], ")"),
-          paste0("Sex %chin% c('", paste(input$filter_sex, collapse = "','"), "')")
+          paste0("Sex %chin% c('", paste(input$filter_sex, collapse = "','"), "')"), 
+          paste0("FacilityType %chin% c('", paste(input$filter_facilitytype, collapse="','"), "')")
         )
         # first reduce using these filters
         fdf <- reduce_data_details_by_filters(fdf, filters)
-
+        
         fdf_count <- reduce_data_details_to_counts(
           data = fdf,
           res = dc$res,
@@ -228,11 +233,13 @@ clust_sidebar_server <- function(id, results, dc, cc) {
         fdf_count <- check_and_standarize_data_cols(fdf_count)
         fdf_count <- post_process_data_pull(fdf_count, res = dc$res)
 
-        text_filters <- get_text_filters(input$filter_age, input$filter_sex)
+        text_filters <- get_text_filters(
+          input$filter_age, input$filter_sex, input$facilty_type
+        )
 
         return(list(fdf = fdf, fdf_count = fdf_count, text_filters = text_filters))
 
-      }) |> bindEvent(input$filter_age, input$filter_sex)
+      }) |> bindEvent(input$filter_age, input$filter_sex, input$filter_facilitytype)
 
 
       # Update the default radius when res changes
@@ -262,10 +269,11 @@ clust_sidebar_server <- function(id, results, dc, cc) {
 }
 
 # helper to convert filters to text:
-get_text_filters <- function(age, sex) {
+get_text_filters <- function(age, sex, facility_type) {
   list(
     age_f = paste0("Age Range: ", paste0(age, collapse = ",")),
-    sex_f = paste0("Sex: ", paste0(sex, collapse = ","))
+    sex_f = paste0("Sex: ", paste0(sex, collapse = ",")),
+    facility_f = paste0("Facility Type: ", paste0(facility_type, collapse = ","))
   )
 }
 

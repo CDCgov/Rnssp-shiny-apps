@@ -29,6 +29,7 @@ get_shape_file_from_tigris <- function(st, level = c("zip", "county"), refresh =
       sh <- readRDS(paste0("state_zcta/", st, "_zcta.rds"))
     }
     colnames(sh)[which(startsWith(colnames(sh), "ZCTA5CE"))] <- "GEOID"
+    colnames(sh)[which(startsWith(colnames(sh), "NAME"))] <- "NAME"
   } else  {
     sh <- Rnssp::county_sf
     if (st != "US") {
@@ -264,10 +265,10 @@ generate_leaflet_plot <- function(
   
   # --- Step 2: Prepare popup/hover labels for polygons ---
   labels <- prepare_labels(leaflet_data, level = level)
-  
+
   # --- Step 3: Generate colors for the cluster labels ---
   default_color_options <- list(
-    palette = "plasma",
+    palette = "Blues",
     reverse = TRUE,
     gradient_fraction = 0.5
   )

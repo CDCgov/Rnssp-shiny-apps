@@ -54,6 +54,7 @@ cluster_map_server <- function(id, results, dc, cc) {
       map_data <- reactive({
 
         if (clusters_found()) {
+          
           map_data <- tryCatch(
             generate_leaflet_data(
               cluster_data = results$cluster_data,

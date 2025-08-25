@@ -405,6 +405,11 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
             "zip",
             "county"
           )
+          
+          is_table_builder <- grepl("tableBuilder", url,perl=T,ignore.case = T)
+          if(is_table_builder) dt_value <-  "table"
+          else dt_value <-  "details"       
+          updateRadioButtons(inputId = "data_type",selected = dt_value)
 
           # update the resolution based on this guess
           updateRadioButtons(session = session, inputId = "res", selected = res_guess)

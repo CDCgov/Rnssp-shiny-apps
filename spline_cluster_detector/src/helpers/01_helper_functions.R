@@ -104,7 +104,7 @@ get_custom_url_data <- function(url, profile, state, res = c("zip", "county")) {
     url <- inject_site(url=url, st=state)
     # we need to generate fields. Note we should also be removing ALL field
     # requests. That is something we need to add
-    url <- paste0(url, "&", get_fields(DEFAULT_LL_FIELDS))
+    url <- paste0(url, "&", get_fields(DEFAULT_BASE_FIELDS))
   }
   
   # crude validation.. If data is not a dataframe something went wrong
@@ -307,6 +307,7 @@ reduce_data_details_by_filters <- function(
     data,
     filters
     ) {
+  
   for (f in filters) {
     # 1. parse the string into an R expression
     expr <- parse(text = f)[[1]]
