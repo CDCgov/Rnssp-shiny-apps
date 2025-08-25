@@ -406,7 +406,7 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
             "county"
           )
           
-          is_table_builder <- grepl("tableBuilder", url,perl=T,ignore.case = T)
+          is_table_builder <- grepl("tableBuilder", dc$custom_url,perl=T,ignore.case = T)
           if(is_table_builder) dt_value <-  "table"
           else dt_value <-  "details"       
           updateRadioButtons(inputId = "data_type",selected = dt_value)
