@@ -380,26 +380,26 @@ generate_leaflet_plot <- function(
   
   labels <- prepare_labels(leaflet_data, level = level)
   
-  # Extract only cluster center rows and their assigned colors
-  # Step 1: pick a single NAME per label_center
-  # Use the geometry row where GEOID == label_center
-  center_names <- leaflet_data |>
-    dplyr::filter(label_center != "No Cluster", GEOID == label_center) |>
-    dplyr::distinct(label_center, NAME)
-  
-  # Step 2: join this to the cluster_center_labels and fill_color
-  center_info <- tibble::tibble(label_center = cluster_center_labels) |>
-    dplyr::left_join(center_names, by = "label_center") |>
-    dplyr::left_join(
-      leaflet_data |> dplyr::distinct(label_center, fill_color),
-      by = "label_center"
-    )
-  
-  # Optional: warning if any NAMEs are missing
-  if (any(is.na(center_info$NAME))) {
-    warning("Some cluster centers have no matching NAME (could not resolve via GEOID == label_center).")
-  } 
-  
+  # # Extract only cluster center rows and their assigned colors
+  # # Step 1: pick a single NAME per label_center
+  # # Use the geometry row where GEOID == label_center
+  # center_names <- leaflet_data |>
+  #   dplyr::filter(label_center != "No Cluster", GEOID == label_center) |>
+  #   dplyr::distinct(label_center, NAME)
+  # 
+  # # Step 2: join this to the cluster_center_labels and fill_color
+  # center_info <- tibble::tibble(label_center = cluster_center_labels) |>
+  #   dplyr::left_join(center_names, by = "label_center") |>
+  #   dplyr::left_join(
+  #     leaflet_data |> dplyr::distinct(label_center, fill_color),
+  #     by = "label_center"
+  #   )
+  # 
+  # # Optional: warning if any NAMEs are missing
+  # if (any(is.na(center_info$NAME))) {
+  #   warning("Some cluster centers have no matching NAME (could not resolve via GEOID == label_center).")
+  # } 
+  # 
   # Generate the segmented color legend with tooltips
   
   # Horizontal Legend
