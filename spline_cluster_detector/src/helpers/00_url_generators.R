@@ -94,7 +94,8 @@ generate_url <- function(
     data_type = c("table", "details"),
     data_source = c("patient", "facility"),
     fields = NULL, 
-    has_been_e = TRUE
+    has_been_e = TRUE, 
+    facility_types = NULL
     ) {
 
   state_value <- toupper(state_value)
@@ -103,7 +104,8 @@ generate_url <- function(
   res <- match.arg(res)
   synd_cat <- match.arg(synd_cat)
   data_source <- match.arg(data_source)
-
+  
+  
   # if source is facility, then we cannot do zip and table builder
   if (data_source == "facility" && res == "zip" && data_type == "table") {
     cli::cli_abort(
@@ -159,7 +161,8 @@ generate_url <- function(
     res = res,
     data_type = data_type,
     data_source = data_source, 
-    has_been_e = has_been_e
+    has_been_e = has_been_e,
+    facility_types = facility_types
   )
 
   # update the dates
@@ -240,7 +243,8 @@ gen_url <- function(
     res = c("zip", "county"),
     data_type = c("table", "details"),
     data_source = c("patient", "facility"),
-    has_been_e = TRUE
+    has_been_e = TRUE, 
+    facility_types = NULL
     ) {
 
   data_type <- match.arg(data_type)
@@ -294,6 +298,12 @@ gen_url <- function(
   # Base URL
   # -------------------------------------------------
   base_url <- get_base_url(data_type = data_type, has_been_e = has_been_e)
+  
+  # Add facility_types if this is NOT NULL, and if length < 6
+  if(!is.null(facility_types) && length(facility_types)<6) {
+    facility_types <- paste0("hospFacilityType=", xml2::url_escape(tolower(facility_types)), collapse = "&")
+    base_url <- paste0(base_url, facility_types, "&")
+  }
 
   # -------------------------------------------------
   # Paste it all together, and return

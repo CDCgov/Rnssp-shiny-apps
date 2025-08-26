@@ -74,6 +74,10 @@ sb_ll <- list(
   has_been_e = list(
     l = "Emergency (Has Been Emergency)",
     m = "Query defaults to True/Yes, but this can be toggled off"
+  ), 
+  facility_types = list(
+    l = "Facility Types",
+    m = "Query defaults to pull all facility types, but subsets can be selected"
   )
 )
 
@@ -116,6 +120,23 @@ dl_sidebar_ui <- function(id) {
     value = TRUE
   )
   
+  facility_types <- checkboxGroupInput(
+    inputId = ns("facility_types"),
+    label = labeltt(sb_ll[["facility_types"]]),
+    choices = c(
+      "Emergency Care" = "emergency care",
+      "Urgent Care" = "urgent care",
+      "Inpatient Practice Setting" = "inpatient practice setting",
+      "Medical Speciality" = "medical speciality",
+      "Primary Care" = "primary care",
+      "Other" = "other"
+    ),
+    selected = c("emergency care","urgent care","inpatient practice setting",
+                 "medical speciality","primary care","other"
+    ),
+    inline=TRUE
+  )
+  
   data_type_button <- tagList(
     radioButtons(
       inputId = ns("data_type"),
@@ -152,6 +173,7 @@ dl_sidebar_ui <- function(id) {
         accordion_panel(
           "Advanced Options",
           has_been_e_toggle,
+          facility_types,
           data_type_button,
           data_source_button
           # us_matrix_checkbox
@@ -252,6 +274,7 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
       # Set Data Config Global Reactive Values
       observe(dc$USE_NSSP <- input$local_or_nssp == "nssp")
       observe(dc$has_been_e <- input$has_been_e)
+      observe(dc$faclity_types <- input$faclity_types)
       observe(dc$custom_url_valid <- custom_url_valid() == "TRUE")
       observe(dc$data_type <- input$data_type)
       observe(dc$data_source <- input$data_source)
@@ -502,7 +525,8 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
           data_type = dc$data_type,
           data_source = dc$data_source,
           fields = fields,
-          has_been_e = input$has_been_e
+          has_been_e = input$has_been_e, 
+          facility_types = input$facility_types
         )
       })
 
