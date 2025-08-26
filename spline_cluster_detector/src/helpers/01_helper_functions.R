@@ -81,14 +81,8 @@ get_custom_url_data <- function(url, profile, state, res = c("zip", "county")) {
   }
   
   is_table_builder <- grepl("tableBuilder", url, ignore.case = TRUE, perl=TRUE)
-
-  # # There are two checks that we will  make directly
-  # # The first is that the url is a tableBuilder URL
-  # if (!grepl("tableBuilder", url, ignore.case = TRUE)) {
-  #   cli::cli_abort("Custom URL must be a tableBuilder query.")
-  # }
-
-  # The second is that if there is both start and end date, then
+  
+  # If there is both start and end date, then
   # the latter must be >= the former
   dates <- extract_dates_from_url(url)
   if (any(is.na(dates)) || dates[["start"]] > dates[["end"]]) {
@@ -102,11 +96,13 @@ get_custom_url_data <- function(url, profile, state, res = c("zip", "county")) {
   if(!is_table_builder) {
     # inject site
     url <- inject_site(url=url, st=state)
-    # we need to generate fields. Note we should also be removing ALL field
-    # requests. That is something we need to add
+    # we need to generate fields. 
+    # First remove any existing fields
+    url <- stringr::str_remove_all(url, "(&|\\?)field=[A-Za-z_]+")
+    # Now replace with our base fields
     url <- paste0(url, "&", get_fields(DEFAULT_BASE_FIELDS))
   }
-  
+
   # crude validation.. If data is not a dataframe something went wrong
   data <- tryCatch(
     get_api_data(url = url, fromCSV = is_csv, profile = profile),
