@@ -236,7 +236,7 @@ clust_sidebar_server <- function(id, results, dc, cc) {
         fdf_count <- post_process_data_pull(fdf_count, res = dc$res)
 
         text_filters <- get_text_filters(
-          input$filter_age, input$filter_sex, input$facilty_type
+          input$filter_age, input$filter_sex, input$filter_facilitytype
         )
 
         return(list(fdf = fdf, fdf_count = fdf_count, text_filters = text_filters))
@@ -272,10 +272,12 @@ clust_sidebar_server <- function(id, results, dc, cc) {
 
 # helper to convert filters to text:
 get_text_filters <- function(age, sex, facility_type) {
+  
   list(
     age_f = paste0("Age Range: ", paste0(age, collapse = ",")),
     sex_f = paste0("Sex: ", paste0(sex, collapse = ",")),
     facility_f = paste0("Facility Type: ", paste0(facility_type, collapse = ","))
   )
+  
 }
 

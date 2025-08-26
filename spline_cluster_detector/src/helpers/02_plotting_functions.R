@@ -380,6 +380,15 @@ generate_leaflet_plot <- function(
   
   labels <- prepare_labels(leaflet_data, level = level)
   
+  # Only include colors for real clusters (exclude grey/"No Cluster")
+  gradient_colors <- leaflet_data |>
+    dplyr::filter(label_center != "No Cluster") |>
+    dplyr::distinct(label_center, fill_color) |>
+    dplyr::pull(fill_color)
+  
+  # Build linear-gradient string
+  gradient_css <- paste(gradient_colors, collapse = ", ")
+  
   # # Extract only cluster center rows and their assigned colors
   # # Step 1: pick a single NAME per label_center
   # # Use the geometry row where GEOID == label_center
@@ -430,6 +439,33 @@ generate_leaflet_plot <- function(
       fillColor = ~ fill_color,
       label = labels
     ) |>
+    addControl(
+      html = htmltools::HTML(sprintf("
+    <style>
+      .leaflet-control.info.legend {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+    </style>
+
+    <div class='legend-container' style='text-align: center; font-family: sans-serif;'>
+      <div class='text-body fw-bold mb-1' style='font-size: 12px;'>
+        Cluster colors ordered from earliest/largest
+      </div>
+      <div style='
+        width: 200px;
+        height: 20px;
+        background: linear-gradient(to right, %s);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 4px;
+      '></div>
+    </div>
+  ", gradient_css)),
+      position = "topright"
+    ) |> 
     # For now, I'm going to comment out the legend, but retain
     # it in case we want in the future
     # addControl(
