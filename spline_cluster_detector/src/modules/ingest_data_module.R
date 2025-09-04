@@ -121,7 +121,9 @@ ingested_data_server <- function(id, profile,  results, dc, cc, ibc, parent_sess
 
             data <- get_custom_url_data(
               dc$custom_url,
-              profile()
+              profile(), 
+              dc$state2, 
+              dc$res
             )
             description <- dc$custom_url
 

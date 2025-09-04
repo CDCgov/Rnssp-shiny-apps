@@ -28,23 +28,30 @@ ui <- page(
           background-color: ", PRIMARY_COLOR, "; /* A darker gray for better contrast in dark mode */
           color: #fff; /* White text for contrast */
         }
+        .disabled-tab {
+          pointer-events: none;
+          opacity: 0.4;
+        }
       ")))),
   useShinyjs(),
   page_navbar(
     title = "Spline Based Cluster Determination",
-    data_loader_ui("data_loader"),
-    clustering_ui("clustering"),
+    nav_panel("Data Loader", value = "data_loader", data_loader_ui("data_loader")),
+    nav_panel("Clustering", value = "clustering", clustering_ui("clustering")),
     nav_panel(
       "Documentation",
-      tags$iframe(src = "documentation.html",
-        style  = "width: 100%; height: 800px; border: none;",
-        seamless = "seamless"
-      )
+      includeMarkdown('src/documentation/documentation.Rmd')
+    ),
+    nav_panel(
+      "UPDATES",
+      includeMarkdown('src/documentation/change_log.Rmd')
     ),
     nav_spacer(),
     nav_item(report_ui("report")),
     nav_item(input_dark_mode()),
-    navbar_options = list(class = "bg-primary", theme = "dark", underline = FALSE)
+    navbar_options = list(class = "bg-primary", theme = "dark", underline = FALSE),
+    selected = "data_loader",
+    id="main_navbar"
   )
 )
 
@@ -62,6 +69,7 @@ server <- function(input, output, session) {
   # ----------------------------------------------------------------------
   # Global Reactives for Data Configuration
   # ----------------------------------------------------------------------
+  
   data_config <- reactiveValues(
     # basic data characteristics
     res = NULL, state = NULL, state2 = NULL,
@@ -101,6 +109,22 @@ server <- function(input, output, session) {
   # ---------------------------------------------------------
   #   Module Calls: Data Loader, Clustering, and Report
   # ---------------------------------------------------------
+  
+  session$onFlushed(function() {
+    runjs("$('a[data-value=\"clustering\"]').addClass('disabled-tab');")
+  }, once = TRUE)
+
+  # Turn the clustering tab on when records is not null; else off
+  observe({
+    if(!is.null(results$records)) {
+      runjs("$('a[data-value=\"clustering\"]').removeClass('disabled-tab');")
+    } else {
+      runjs("$('a[data-value=\"clustering\"]').addClass('disabled-tab');")
+      updateTabsetPanel(inputId = "main_navbar", selected="data_loader")
+    }
+  }) |> bindEvent(results$records)
+
+
   data_loader_server("data_loader", results, data_config, cluster_config, profile, valid_profile)
   clustering_server("clustering", results, data_config, cluster_config, profile)
   report_server("report", results, data_config, cluster_config)

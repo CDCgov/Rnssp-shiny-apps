@@ -67,19 +67,22 @@ labeltt <- function(l, ...) {
 }
 
 # Function to get data from a custom url
-get_custom_url_data <- function(url, profile) {
+get_custom_url_data <- function(url, profile, state, res = c("zip", "county")) {
+  
+  res = match.arg(res)
 
   if (is.null(url) || url == "") {
     cli::cli_abort("No url provided")
   }
-
-  # There are two checks that we will  make directly
-  # The first is that the url is a tableBuilder URL
-  if (!grepl("tableBuilder", url, ignore.case = TRUE)) {
-    cli::cli_abort("Custom URL must be a tableBuilder query.")
+  
+  if(state == "US") {
+    # for now we should stop?
+    cli::cli_abort("Custom URL cannot be used a the National Level")
   }
-
-  # The second is that if there is both start and end date, then
+  
+  is_table_builder <- grepl("tableBuilder", url, ignore.case = TRUE, perl=TRUE)
+  
+  # If there is both start and end date, then
   # the latter must be >= the former
   dates <- extract_dates_from_url(url)
   if (any(is.na(dates)) || dates[["start"]] > dates[["end"]]) {
@@ -88,6 +91,17 @@ get_custom_url_data <- function(url, profile) {
 
   # is this url an csv url?
   is_csv <- grepl("/csv\\?", url)
+  
+  # We need to inject site and fields if this is data details
+  if(!is_table_builder) {
+    # inject site
+    url <- inject_site(url=url, st=state)
+    # we need to generate fields. 
+    # First remove any existing fields
+    url <- stringr::str_remove_all(url, "(&|\\?)field=[A-Za-z_]+")
+    # Now replace with our base fields
+    url <- paste0(url, "&", get_fields(DEFAULT_BASE_FIELDS))
+  }
 
   # crude validation.. If data is not a dataframe something went wrong
   data <- tryCatch(
@@ -95,15 +109,25 @@ get_custom_url_data <- function(url, profile) {
     error = function(e) cli::cli_abort("Call to API failed"),
     warning = function(e) cli::cli_abort("Call to API failed")
   )
-
-  if (!is.data.frame(data) || dim(data)[1] == 0) {
-    cli::cli_abort(
-      "Custom URL call failed. Check URL."
-    )
+  
+  # Note: if this is not a tableBuilder query, then get_api_data returns
+  # a list with element "dataDetails"
+  if(!is_table_builder)  {
+    if (!is.data.frame(data[["dataDetails"]]) || dim(data[["dataDetails"]])[1] == 0) {
+      cli::cli_abort(
+        "Custom URL call failed / or returned no data. Check URL."
+      )
+    }
+  } else {
+    if (!is.data.frame(data) || dim(data)[1] == 0) {
+      cli::cli_abort(
+        "Custom URL call failed. Check URL."
+      )
+    }
   }
 
 
-  if (is_csv) {
+  if (is_csv & is_table_builder==TRUE) {
     data <- data |> tidyr::pivot_longer(
       cols = -1,
       names_to = "location",
@@ -111,13 +135,21 @@ get_custom_url_data <- function(url, profile) {
     )
   }
 
-  # Now, we have to prepare this raw data. We will assume it is "table",
-  # but we have to guess the geography level.. What about all the other
-  # characteristic we need for clustering!.. dates, baseline length, etc
-  res_guess <- fifelse(grepl("zip", url, ignore.case = TRUE), "zip", "county")
+  # Now, we have to prepare this raw data. If this is a table Builder
+  # query, we guess from the url itself, but if this is data details
+  # we use the res in the sidebar itself
+  if(is_table_builder) {
+    res_guess <- fifelse(grepl("zip", url, ignore.case = TRUE), "zip", "county")    
+  } else {
+    res_guess <- res
+  }
 
-  data <- prepare_raw_data(data, "table", res_guess)
-
+  data <- prepare_raw_data(
+    data,
+    data_type = fifelse(is_table_builder,"table", "details"),
+    res_guess
+  )
+  
   # Note that prepare raw data now returns a list of
   # length two with names "data", and "data_details"
 
@@ -271,6 +303,7 @@ reduce_data_details_by_filters <- function(
     data,
     filters
     ) {
+  
   for (f in filters) {
     # 1. parse the string into an R expression
     expr <- parse(text = f)[[1]]

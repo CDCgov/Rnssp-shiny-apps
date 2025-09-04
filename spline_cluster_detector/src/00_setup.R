@@ -38,7 +38,7 @@ for (f in list.files("src/scd_package_assets/", pattern = ".R$", full.names = T,
 rm(list = c("f"))
 #######################################
 
-MAX_DATE_RANGE <- 730
+MAX_DATE_RANGE <- 1095
 
 
 # SOURCE THE VARIOUS FILES

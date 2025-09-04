@@ -40,18 +40,7 @@ data_loader_server <- function(id, results, data_config, cluster_config, profile
       #   Button Click Reactive
       # ---------------------------------------------
       ingest_btn_click <- reactive(input$ingest_btn)
-
-      # ---------------------------------------------
-      #   Sidebar Toggle (currently toggle capability is turned off)
-      # ---------------------------------------------
-      # observe({
-      #   toggle_sidebar(
-      #     id = "config_sidebar",
-      #     open = !is.data.frame(results$records)
-      #   )
-      # }) |> bindEvent(ingest_btn_click(),results$records)
-      #
-
+      
       # ---------------------------------------------
       # Clear critical objects if data_config$USE_NSSP changes
       # ---------------------------------------------

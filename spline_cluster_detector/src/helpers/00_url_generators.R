@@ -74,6 +74,12 @@ valid_details_fields <- c(
   "AgeGroup"
 )
 
+DEFAULT_BASE_FIELDS <-  c(
+  "Region", "State", "Date", "ZipCode",
+  "HospitalRegion", "FacilityType", "C_BioSense_ID", "Visit_ID", "Hospital",
+  "Age", "Sex"
+)
+
 
 # Function creates a url to pass to API
 # If all fields desired, pass "all"
@@ -87,7 +93,9 @@ generate_url <- function(
     inject_site = TRUE,
     data_type = c("table", "details"),
     data_source = c("patient", "facility"),
-    fields = NULL
+    fields = NULL, 
+    has_been_e = TRUE, 
+    facility_types = NULL
     ) {
 
   state_value <- toupper(state_value)
@@ -96,7 +104,8 @@ generate_url <- function(
   res <- match.arg(res)
   synd_cat <- match.arg(synd_cat)
   data_source <- match.arg(data_source)
-
+  
+  
   # if source is facility, then we cannot do zip and table builder
   if (data_source == "facility" && res == "zip" && data_type == "table") {
     cli::cli_abort(
@@ -117,11 +126,7 @@ generate_url <- function(
     if (!is.null(fields) && tolower(fields)[1] == "all") fields <- valid_details_fields
 
     # Now, make sure whatever is passed has our key fields included
-    base_fields <-  c(
-      "Region", "State", "Date", "ZipCode",
-      "HospitalRegion", "FacilityType", "C_BioSense_ID", "Visit_ID", "Hospital",
-      "Age", "Sex"
-    )
+    base_fields <-  DEFAULT_BASE_FIELDS
 
     fields <- base::union(base_fields, fields)
 
@@ -155,7 +160,9 @@ generate_url <- function(
     syndrome_cat = synd_cat,
     res = res,
     data_type = data_type,
-    data_source = data_source
+    data_source = data_source, 
+    has_been_e = has_been_e,
+    facility_types = facility_types
   )
 
   # update the dates
@@ -235,7 +242,9 @@ gen_url <- function(
     syndrome_cat = c("ccdd", "synd", "subsynd"),
     res = c("zip", "county"),
     data_type = c("table", "details"),
-    data_source = c("patient", "facility")
+    data_source = c("patient", "facility"),
+    has_been_e = TRUE, 
+    facility_types = NULL
     ) {
 
   data_type <- match.arg(data_type)
@@ -288,7 +297,13 @@ gen_url <- function(
   # -------------------------------------------------
   # Base URL
   # -------------------------------------------------
-  base_url <- get_base_url(data_type = data_type)
+  base_url <- get_base_url(data_type = data_type, has_been_e = has_been_e)
+  
+  # Add facility_types if this is NOT NULL, and if length < 6
+  if(!is.null(facility_types) && length(facility_types)<6) {
+    facility_types <- paste0("hospFacilityType=", xml2::url_escape(tolower(facility_types)), collapse = "&")
+    base_url <- paste0(base_url, facility_types, "&")
+  }
 
   # -------------------------------------------------
   # Paste it all together, and return
@@ -349,26 +364,28 @@ get_datasource_structure <- function(data_type = c("table", "details"),
 
 }
 
-get_base_url <- function(data_type = c("table", "details")) {
+get_base_url <- function(data_type = c("table", "details"), has_been_e = TRUE) {
   data_type <- match.arg(data_type)
   base_start <- format(Sys.Date() - 7, "%d%b%Y")
   base_end <- format(Sys.Date() - 7 - 90, "%d%b%Y")
 
   if (data_type == "table") {
-    return(
+    url <- 
       paste0(
         "https://essence.syndromicsurveillance.org/nssp_essence/api/tableBuilder?",
         "startDate=", base_start, "&endDate=", base_end, "&percentParam=noPercent&aqtTarget=TableBuilder&",
-        "detector=probrepswitch&timeResolution=daily&hasBeenE=1&rowFields=timeResolution&"
+        "detector=probrepswitch&timeResolution=daily&rowFields=timeResolution&"
       )
-    )
   } else {
-    return(
+    url <- 
       paste0(
         "https://essence.syndromicsurveillance.org/nssp_essence/api/dataDetails?",
         "startDate=", base_start, "&endDate=", base_end, "&percentParam=noPercent&aqtTarget=DataDetails&",
-        "detector=probrepswitch&timeResolution=daily&hasBeenE=1&"
+        "detector=probrepswitch&timeResolution=daily&"
       )
-    )
   }
+  if(has_been_e == TRUE) {
+    url <- paste0(url, "hasBeenE=1&")
+  }
+  return(url)
 }

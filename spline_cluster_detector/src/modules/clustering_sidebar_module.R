@@ -48,42 +48,6 @@ clust_sidebar_ui <- function(id) {
   ns <- NS(id)
 
 
-  # basic_acc_panel <- accordion_panel(
-  #   value="basic_acc_panel",
-  #   title="Basic Options",
-  #   radioButtons(
-  #     inputId = ns("radius"),
-  #     label = labeltt(clsb_ll[["radius"]]),
-  #     choices = c(15, 20, 25, 50, 100, 200),
-  #     selected = 15,
-  #     inline = TRUE
-  #   ),
-  #   dateInput(
-  #     inputId = ns("end_date"),
-  #     label = labeltt(clsb_ll[["end_date"]]),
-  #     value = Sys.Date() - 7
-  #   ),
-  #   sliderInput(
-  #     inputId = ns("test_length"),
-  #     label = labeltt(clsb_ll[["test_length"]]),
-  #     min = 1,
-  #     max = 14,
-  #     value = 7
-  #   ),
-  #   numericInput(
-  #     inputId = ns("baseline_length"),
-  #     label = labeltt(clsb_ll[["baseline_length"]]),
-  #     value = 90,
-  #     min = 7,
-  #     max = 365
-  #   )
-  # )
-
-  # us_matrix_checkbox <- checkboxInput(
-  #   inputId = ns("us_matrix"),
-  #   label = labeltt(clsb_ll[["us_matrix"]]),
-  #   value=F
-  # )
   spline_selector <- selectInput(
     inputId = ns("spline"),
     label = labeltt(clsb_ll[["spline"]]),
@@ -129,9 +93,14 @@ clust_sidebar_ui <- function(id) {
         radioButtons(
           inputId = ns("radius"),
           label = labeltt(clsb_ll[["radius"]]),
-          choices = c(15, 20, 25, 50, 100, 200),
+          choices = c(15, 20, 25, 50, 100, 200, "Other"),
           selected = 15,
           inline = TRUE
+        ),
+        conditionalPanel(
+          condition = "input.radius=='Other'",
+          numericInput(inputId = ns("custom_radius"), label="Custom Radius", value=50, min=1), 
+          ns = ns
         ),
         dateInput(
           inputId = ns("end_date"),
@@ -181,7 +150,14 @@ clust_sidebar_server <- function(id, results, dc, cc) {
       # Set Cluster Config Global Reactive Values
       observe(cc$spline_lookup <- SPLINE_LIBRARY[[input$spline]])
       observe(cc$spline_value <- input$spline)
-      observe(cc$radius <- as.numeric(input$radius))
+      observe({
+        req(input$radius)
+        cc$radius <- fifelse(
+          input$radius == "Other",
+          as.numeric(input$custom_radius),
+          as.numeric(input$radius)
+        )
+      })
       observe(cc$end_date <- input$end_date)
       observe(cc$baseline_length <- as.numeric(input$baseline_length))
       observe(cc$test_length <- as.numeric(input$test_length))
@@ -211,7 +187,13 @@ clust_sidebar_server <- function(id, results, dc, cc) {
             ),
             sliderInput(
               ns("filter_age"), "Age",
-              min = 0, max = 100, value = c(0, 120)
+              min = 0, max = 120, value = c(0, 120)
+            ),
+            checkboxGroupInput(
+              ns("filter_facilitytype"), "Facility Type",
+              choices = unique(results$data_details$FacilityType),
+              selected = unique(results$data_details$FacilityType),
+              inline = TRUE
             )
           )
         )
@@ -238,11 +220,12 @@ clust_sidebar_server <- function(id, results, dc, cc) {
 
         filters <- c(
           paste0("between(Age,", input$filter_age[1], ",", input$filter_age[2], ")"),
-          paste0("Sex %chin% c('", paste(input$filter_sex, collapse = "','"), "')")
+          paste0("Sex %chin% c('", paste(input$filter_sex, collapse = "','"), "')"), 
+          paste0("FacilityType %chin% c('", paste(input$filter_facilitytype, collapse="','"), "')")
         )
         # first reduce using these filters
         fdf <- reduce_data_details_by_filters(fdf, filters)
-
+        
         fdf_count <- reduce_data_details_to_counts(
           data = fdf,
           res = dc$res,
@@ -252,11 +235,13 @@ clust_sidebar_server <- function(id, results, dc, cc) {
         fdf_count <- check_and_standarize_data_cols(fdf_count)
         fdf_count <- post_process_data_pull(fdf_count, res = dc$res)
 
-        text_filters <- get_text_filters(input$filter_age, input$filter_sex)
+        text_filters <- get_text_filters(
+          input$filter_age, input$filter_sex, input$filter_facilitytype
+        )
 
         return(list(fdf = fdf, fdf_count = fdf_count, text_filters = text_filters))
 
-      }) |> bindEvent(input$filter_age, input$filter_sex)
+      }) |> bindEvent(input$filter_age, input$filter_sex, input$filter_facilitytype)
 
 
       # Update the default radius when res changes
@@ -286,10 +271,13 @@ clust_sidebar_server <- function(id, results, dc, cc) {
 }
 
 # helper to convert filters to text:
-get_text_filters <- function(age, sex) {
+get_text_filters <- function(age, sex, facility_type) {
+  
   list(
     age_f = paste0("Age Range: ", paste0(age, collapse = ",")),
-    sex_f = paste0("Sex: ", paste0(sex, collapse = ","))
+    sex_f = paste0("Sex: ", paste0(sex, collapse = ",")),
+    facility_f = paste0("Facility Type: ", paste0(facility_type, collapse = ","))
   )
+  
 }
 

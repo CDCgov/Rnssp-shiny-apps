@@ -61,22 +61,7 @@ compute_clusters_server <- function(id, results, dc, cc, trigger, parent_session
       observe(results$cluster_data <- cluster_data())
       observe(results$cluster_table_display <- cluster_table_display()$display)
       observe(results$cluster_data_extended <- cluster_table_display()$cd)
-      # observe({
-      #   req(cluster_table_display())
-      #   if(is.list(cluster_table_display())) {
-      #     results$cluster_table_display <- cluster_table_display()$display
-      #   } else {
-      #     results$cluster_table_display <- cluster_table_display()
-      #   }
-      # })
-      #
-      # observe({
-      #   req(cluster_table_display())
-      #   if(is.list(cluster_table_display())) {
-      #     results$cluster_data_extended <- cluster_table_display()$cd
-      #   }
-      #
-      # })
+
 
       ns <- session$ns
 
@@ -176,7 +161,9 @@ compute_clusters_server <- function(id, results, dc, cc, trigger, parent_session
           }
 
           dom_value <- fifelse(nrow(cd) < 10, "t", "tp")
-
+          
+          # Add a sort order
+          setorderv(cd, c("Cluster Date", "Observed", "p-value"),order = c(1,-1,1))
 
           cd[, names(.SD) := lapply(.SD, \(s) round(s, 2)), .SDcols = is.numeric]
           cd[, intersected_locs := paste0(
@@ -198,7 +185,10 @@ compute_clusters_server <- function(id, results, dc, cc, trigger, parent_session
                 targets = "Cluster Locations",
                 render = JS("$.fn.dataTable.render.ellipsis(25, false )")
               ))
-
+            ),
+            caption = tags$caption(
+              style = "caption-side: bottom; text-align: left;",
+              "Note: ", em("Clusters are sorted by date, then total observed cases, then p-value.")
             )
           )
 

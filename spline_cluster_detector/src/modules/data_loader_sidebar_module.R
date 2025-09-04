@@ -50,26 +50,35 @@ sb_ll <- list(
   ),
   data_load_drange = list(
     l = "Data Date Range",
-    m = "Choose a date range for api call. Default is 120 days. We recommend a date
-      range sufficient to allow a 7 date test interval preceded by 90 days of baseline"
+    m = paste0("Choose a date range for api call. Default is 120 days. We recommend a date
+      range sufficient to allow a 7 date test interval preceded by 90 days of baseline. The
+      maximum date range cannot exceed ", MAX_DATE_RANGE)
     ),
-    end_date = list(
-      l = "End Date",
-      m = "Final/Last date of the test period"
-    ),
-    test_length = list(
-      l = "Max Cluster Days",
-      m = "Length in days of the test interval; equivalently, the maximum number of days for the cluster"
-    ),
-    baseline_length = list(
-      l = "Baseline Length",
-      m = paste0("Number of days in the baseline interval (min 1, max ", MAX_DATE_RANGE, ")")
-    ),
-    dedup = list(
-      l = "De-duplicate?",
-      m = "De-duplicates encounters by taking the first (chronological) encounter within VisitID and Hospital.
-      The default behavior is to NOT de-duplicate."
-    )
+  end_date = list(
+    l = "End Date",
+    m = "Final/Last date of the test period"
+  ),
+  test_length = list(
+    l = "Max Cluster Days",
+    m = "Length in days of the test interval; equivalently, the maximum number of days for the cluster"
+  ),
+  baseline_length = list(
+    l = "Baseline Length",
+    m = paste0("Number of days in the baseline interval (min 1, max ", MAX_DATE_RANGE, ")")
+  ),
+  dedup = list(
+    l = "De-duplicate?",
+    m = "De-duplicates encounters by taking the first (chronological) encounter within VisitID and Hospital.
+    The default behavior is to NOT de-duplicate."
+  ),
+  has_been_e = list(
+    l = "Emergency (Has Been Emergency)",
+    m = "Query defaults to True/Yes, but this can be toggled off"
+  ), 
+  facility_types = list(
+    l = "Facility Types",
+    m = "Query defaults to pull all facility types, but subsets can be selected"
+  )
 )
 
 
@@ -102,11 +111,32 @@ dl_sidebar_ui <- function(id) {
       label = labeltt(sb_ll[["data_load_drange"]]),
       end = Sys.Date() - 7,
       start = Sys.Date() - 126
-      # min = Sys.Date()-MAX_DATE_RANGE,
-      # max = Sys.Date()
     )
   )
 
+  has_been_e_toggle <- input_switch(
+    id = ns("has_been_e"),
+    label = labeltt(sb_ll[["has_been_e"]]),
+    value = TRUE
+  )
+  
+  facility_types <- checkboxGroupInput(
+    inputId = ns("facility_types"),
+    label = labeltt(sb_ll[["facility_types"]]),
+    choices = c(
+      "Emergency Care" = "emergency care",
+      "Urgent Care" = "urgent care",
+      "Inpatient Practice Setting" = "inpatient practice setting",
+      "Medical Speciality" = "medical speciality",
+      "Primary Care" = "primary care",
+      "Other" = "other"
+    ),
+    selected = c("emergency care","urgent care","inpatient practice setting",
+                 "medical speciality","primary care","other"
+    ),
+    inline=TRUE
+  )
+  
   data_type_button <- tagList(
     radioButtons(
       inputId = ns("data_type"),
@@ -142,6 +172,8 @@ dl_sidebar_ui <- function(id) {
         multiple = FALSE, open = FALSE,
         accordion_panel(
           "Advanced Options",
+          has_been_e_toggle,
+          facility_types,
           data_type_button,
           data_source_button
           # us_matrix_checkbox
@@ -241,6 +273,8 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
 
       # Set Data Config Global Reactive Values
       observe(dc$USE_NSSP <- input$local_or_nssp == "nssp")
+      observe(dc$has_been_e <- input$has_been_e)
+      observe(dc$faclity_types <- input$faclity_types)
       observe(dc$custom_url_valid <- custom_url_valid() == "TRUE")
       observe(dc$data_type <- input$data_type)
       observe(dc$data_source <- input$data_source)
@@ -394,6 +428,11 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
             "zip",
             "county"
           )
+          
+          is_table_builder <- grepl("tableBuilder", dc$custom_url,perl=T,ignore.case = T)
+          if(is_table_builder) dt_value <-  "table"
+          else dt_value <-  "details"       
+          updateRadioButtons(inputId = "data_type",selected = dt_value)
 
           # update the resolution based on this guess
           updateRadioButtons(session = session, inputId = "res", selected = res_guess)
@@ -403,6 +442,10 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
             toupper(unique(extract_locations_from_url(dc$custom_url, res_guess))),
             res_guess
           )
+          
+          # We should only update the states if states is non-empty (it could
+          # be empty if this is a data details query)
+          if(is.null(states)) states = c(state.abb, "DC")
 
           choices <- state.name[which(state.abb %in% states)]
           if ("DC" %in% states) {
@@ -446,8 +489,7 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
 
         tryCatch(
           {
-            # new_url = Rnssp::change_dates(
-            new_url <- inject_dates_into_url(
+             new_url <- inject_dates_into_url(
               dc$custom_url,
               start_date = input$url_date_change[1],
               end_date = input$url_date_change[2]
@@ -482,7 +524,9 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
           res = dc$res,
           data_type = dc$data_type,
           data_source = dc$data_source,
-          fields = fields
+          fields = fields,
+          has_been_e = input$has_been_e, 
+          facility_types = input$facility_types
         )
       })
 
@@ -587,18 +631,17 @@ hide_show_sidebar_elements <- function(use_nssp, url_builder, file_uploaded) {
     showElement("options_accordion")
 
     if (url_builder == "ad_hoc") {
-      hideElement("data_type")
-      hideElement("data_source")
+      hideElement("options_accordion")
       hideElement("data_load_drange")
     } else {
-      showElement("data_type")
-      showElement("data_source")
+      showElement("options_accordion")
       showElement("data_load_drange")
     }
   } else {
     showElement("local_file_upload")
-    hideElement("data_type")
-    hideElement("data_source")
+    hideElement("options_accordion")
+    # hideElement("data_type")
+    # hideElement("data_source")
 
     if (file_uploaded) {
       showElement("main_accordion")
@@ -638,11 +681,43 @@ create_syndrome_acc_panel <- function(ns, cats) {
 
 # Helper function to check validity of the custom url
 check_url_validity <- function(url, states, dates) {
-  # Some validity checks:
+  
+  # find out if this is tableBuilder or dataDetails custom url
+  is_table_builder <- grepl("tableBuilder", url)
+  is_data_details <- grepl("dataDetails", url)
+  
+  if(is_table_builder) validity_result <- check_table_builder_url_validity(
+    url, states, dates
+  ) else if(is_data_details) validity_result <- check_data_details_url_validity(
+    url, dates
+  ) else {
+    validity_result <- "Must be either tableBuilder or dataDetails url"
+  }
+  # return the message
+  validity_result
+}
+
+check_data_details_url_validity <- function(url, dates) {
+  
+  if (grepl("[/]csv[?]", url)) {
+    validity_result <- "Cannot be a csv url / must be json"
+  } else if (is.null(dates) || length(dates) != 2 || is.na(dates[["start"]]) || is.na(dates[["end"]])) {
+    validity_result <- "Start and/or End Date missing, null, or malformed"
+  } else if (dates[["start"]] > dates[["end"]]) {
+    validity_result <- "End date is before start date"
+  } else if ((dates[["end"]] - dates[["start"]]) > MAX_DATE_RANGE) {
+    validity_result <- paste0("Start and End date interval cannot exceed ", MAX_DATE_RANGE, " days")
+  } else {
+    validity_result <- "TRUE"
+  }
+  # return the message
+  validity_result
+}
+
+check_table_builder_url_validity <- function(url, states, dates) {
+  
   if (length(states) == 0) {
     validity_result <- "No Counties or Zip Codes Detected"
-  } else if (grepl("tableBuilder", url) == FALSE) {
-    validity_result <- "Must be tableBuilder URL"
   } else if (grepl("[/]csv[?]", url)) {
     validity_result <- "Cannot be a csv url / must be json"
   } else if (is.null(dates) || length(dates) != 2 || is.na(dates[["start"]]) || is.na(dates[["end"]])) {
