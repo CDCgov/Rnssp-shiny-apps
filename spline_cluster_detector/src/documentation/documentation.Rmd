@@ -23,6 +23,7 @@ This app approximates the scan-statistic in SaTScan, allowing ESSENCE bio-survei
     -   Data Loader
     -   Clustering (enabled after ingestion)
     -   Documentation
+    -   UPDATES (shows list of app changes, over time)
     -   Report generation button (enabled after ingestion)
 
 # Data Specification and Ingestion
@@ -49,11 +50,11 @@ You can ingest data two ways:
     1.  Click **NSSP API Call**
     2.  Choose **ad hoc URL** or **URL builder**
         -   **Ad hoc URL**: Paste a full ESSENCE query URL
-            -   the url must include a start date and end date parameter, and these parameters must b be valid dates; you can adjust date range but not categories/locations
+            -   the url must include a start date and end date parameter, and these parameters must be valid dates; you can adjust date range but not categories/locations
             -   the url must include `timeResolution=daily` as one of its parameters
-            -   the url must be a `tableBuilder` query
-            -   the date range must not exceed 720 days
-            -   the query must be json (not csv) query
+            -   the url must be either `tableBuilder` or `dataDetails` query (the app will search for these terms in the pasted URL
+            -   the date range must not exceed 1095 days
+            -   the query must be json (not csv) query; if copying from the Essence UI, be sure to copy the json version of the URL
         -   **URL builder**: Walk through controls (see below) to assemble a URL.
     3.  Click **Ingest Data**
 
@@ -61,6 +62,7 @@ You can ingest data two ways:
 
     1.  **Date range**
         -   Start/end dates (default: last 120 days; allows ≥7-day test + ≥90-day baseline)
+        -   This date range is limited 1095 days
     2.  **Geography**
         -   Resolution: ZIP code or county (ESSENCE maps ZIP to “region” for counties)
         -   State (single state or “All US + DC”)
@@ -70,6 +72,8 @@ You can ingest data two ways:
         -   CCDD category (n=137 as of April 2025)
     4.  **Advanced Options** (ESSENCE-only)
         -   Emergency Visit Status: by default all URL-builder queries are built with the flag `hasBeenE=1`. This can be toggled off.
+
+        -   Facility Type: by default all facility types will be pulled; one or more of these can be deselected
 
         -   Data Source: this option controls which data source is leveraged when pulling data
 
@@ -85,7 +89,7 @@ You can ingest data two ways:
 
             2.  **Data Details:** constructs a `dataDetails` query, and Individual records are pulled. This is generally, but not always, slower than the default option. The advantage to this is that you can choose to de-duplicate (see below), and can run clustering on subsets of the data using age and sex filters.
 
-            3.  When using this option, there is a toggle for de-duplication (which defaults to `TRUE`). When `TRUE`, the line-level data will be reduced in two ways. First, the data are filtered to exclude rows where `FacilityType` can be matched via regular expression to any of the following case-insensitive values: "urgent", "primary", "other", or "medical specialty". Second, the date are reduced to unique combinations of `VisitID` and `Hospital`. That is, if there are multiple rows (i.e. line-level encounters) with the same `VisitID` and `Hospital`, only the first of each such multi-row combination is retained. This can be turned off by sliding the toggle. The actual R code to implement this is seen below:
+            3.  When using this option, there is a toggle for de-duplication (which defaults to `FALSE`). When `TRUE`, the line-level data will be reduced in two ways. First, the data are filtered to exclude rows where `FacilityType` can be matched via regular expression to any of the following case-insensitive values: "urgent", "primary", "other", or "medical specialty". Second, the date are reduced to unique combinations of `VisitID` and `Hospital`. That is, if there are multiple rows (i.e. line-level encounters) with the same `VisitID` and `Hospital`, only the first of each such multi-row combination is retained. This can be turned off by sliding the toggle. The actual R code to implement this is seen below:
 
                 <details>
 
@@ -154,8 +158,8 @@ After clicking **Clustering**, the left sidebar panel shows cluster controls; th
 
 ## Clustering Options
 
--   **Radius** (miles): ZIP default 15; county default 50
--   **End date** of test interval
+-   **Radius** (miles): ZIP default 15; county default 50. There is a number of pre-set options for radius, which can be selected via radio button. There is also an option to select "Other", and enter your own custom radius.
+-   **End date** of test interval (this defaults to the maximum date in the data that are loaded)
 -   **Max cluster duration** (days; default 7)
 -   **Baseline length** (days; default ≥90)
 -   **Advanced**:
@@ -165,7 +169,7 @@ After clicking **Clustering**, the left sidebar panel shows cluster controls; th
         -   Add one as needed: adds one to the denominator only when needed
         -   Add test interval to baseline: adds all data in the test interval to the baseline interval
         -   No adjustment
--   **Apply Filters:** this option only appears if a data details query has been selected (see Advanced Options for Data Specifications). In this case, the user can chose to filter the returned data to any subset defined by the age and sex values in the underlying individual records. These additional filter options are controlled by widgets that appear as below
+-   **Apply Filters:** this option only appears if a data details query has been selected (see Advanced Options for Data Specifications). In this case, the user can chose to filter the returned data to any subset defined by the age and sex values in the underlying individual records. These additional filter options are controlled by widgets that appear as below. Filtering by facility type is also possible.
 
 ![](images/clipboard-413734943.png)
 
@@ -180,7 +184,7 @@ After clicking **Clustering**, the left sidebar panel shows cluster controls; th
 ## Cluster Table
 
 | Column | Description |
-|---------------------|---------------------------------------------------|
+|----------------------|--------------------------------------------------|
 | **Center** | ZIP or county at cluster center |
 | **Cluster Date** | Last date in cluster (≥1 record on this day) |
 | **Duration** | Days spanned (≤ max duration) |
@@ -193,6 +197,8 @@ After clicking **Clustering**, the left sidebar panel shows cluster controls; th
 | **Cluster locations** | List (hover to reveal full list if truncated) |
 | **ZIPs affected** | Expandable list of ZIPs/counties in cluster, regardless of case presence |
 
+The cluster table is sorted by cluster date (i.e. earliest to most recent), then by size of the cluster (i.e. the value in Observed), and then by p-value
+
 ## Cluster Map
 
 -   Outlines of all ZIPs/counties in region
@@ -201,6 +207,17 @@ After clicking **Clustering**, the left sidebar panel shows cluster controls; th
     -   Location & center
     -   Observed/expected per location
     -   Cluster duration
+-   The map opens with a sidebar that allow for selection of a different palette, and some options for reversing the palette direction, or expanding the range of the palette that is used. The shade of the counties/zips is based on the ordering in the cluster table
+
+## Line Level Listing
+
+-   It is possible to obtain line-level listing for records that contribute to clusters found. This is only possible under certain conditions:
+    -   The cluster estimation must be based on a data pull from the API Builder; local file upload or ad-hoc queries can not be leveraged to obtain line-level details, even if clusters are found.
+    -   At least one cluster must have been found.
+-   A button to obtain line-level information will appear if the above conditions have been met.
+-   The line-level data are initially shown with all information appearing as random characters. This is a mask to protect privacy, but this mask can be removed by clicking on a checkbox.
+-   The line level information can be shown for all clusters, or just a single cluster, using a drop down box
+-   Line level information can be downloaded.
 
 # Generating Report
 

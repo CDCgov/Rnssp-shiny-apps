@@ -42,6 +42,10 @@ ui <- page(
       "Documentation",
       includeMarkdown('src/documentation/documentation.Rmd')
     ),
+    nav_panel(
+      "UPDATES",
+      includeMarkdown('src/documentation/change_log.Rmd')
+    ),
     nav_spacer(),
     nav_item(report_ui("report")),
     nav_item(input_dark_mode()),

@@ -1,0 +1,41 @@
+---
+title: "Change Log"
+output:
+  html_document:
+    toc: false
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 3
+---
+
+## September 4th, 2025
+
+-   All queries generated from the API Builder (whether data details or table builder) by default use the `hasBeenE` flag. This can now be turned off in the Advanced Options, if desired.
+
+-   When using the API Builder to pull data from Essence, users can now specify one or more facility types (for example ED, Urgent Care, Primary Care, etc) to include/exclude (by default all are included).
+
+-   Custom URLs now allow data details queries; previously only TableBuilder queries were allowed, which limited the flexibility of the types of ad-hoc queries that users could implement.
+
+-   When setting clustering configuration, a custom radius (in miles) can be entered, in addition to the previous pre-determined list of radii.
+
+-   If/when clusters are detected, the table listing those clusters has some aesthetic improvements related to sorting. The clusters are sorted by date (from earliest start date to most recent start date), then size of the cluster, the (approximate) p-value.
+
+-   The clustering tab is grayed out until data have been ingested.
+
+-   The maximum number of days that can be pulled in a query built via the API Builder is increased from 730 (two years) to 1095 (three years).
+
+-   The mapping of identified clusters now provides a set of palettes from which users may choose, and the shading of clusters follows the same sort order as the cluster summary table, so users can visualize the "ordering" of clusters on the map
+
+-   The post-pull filters for data details queries has been expanded. Previously, we only allowed Age and Sex filtering AFTER pulling data details queries. We now allow for filtering on facility type. (Note: since this is also a pre-pull filter, the types observed in the post-pull filtering will be limited to those included in the pre-pull filter selection). The post-pull filtering on facility type allows multiple selections.
+
+-   When line-listing information is initially shown on the screen, the information is masked with random characters, which can be removed by clicking on a checkbox.
+
+## July 12th, 2025
+
+-   If data are ingested using the data details option, filtering of the data is possible before cluster detection. The currently enabled filtering option is to restrict the data by age group and/or by sex.
+
+-   Line-level details are now available for all records contributing to clusters under the following limitations:
+    -   The api-builder option must have been used to ingest data. Line Level information cannot be generated if the data were ingested with a local file upload, or ingested using an ad-hoc query (this constraint maybe resolved in future development)
+    -   The data source used for the api upload must be patient level ED records, not facility level.
+    -   At least one cluster must have been found.
