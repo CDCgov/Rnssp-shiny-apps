@@ -9,6 +9,11 @@ output:
     toc_depth: 3
 ---
 
+## September 29th, 2025
+
+-   The maximum cluster length / test interval has been increased to 90 days.
+
+
 ## September 4th, 2025
 
 -   All queries generated from the API Builder (whether data details or table builder) by default use the `hasBeenE` flag. This can now be turned off in the Advanced Options, if desired.

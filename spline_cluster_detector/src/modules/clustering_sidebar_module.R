@@ -111,7 +111,7 @@ clust_sidebar_ui <- function(id) {
           inputId = ns("test_length"),
           label = labeltt(clsb_ll[["test_length"]]),
           min = 1,
-          max = 28,
+          max = 90,
           value = 7
         ),
         numericInput(
