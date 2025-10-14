@@ -91,7 +91,7 @@ server <- function(input, output, session) {
   cluster_config <- reactiveValues(
     radius = NULL,
     test_length = NULL, end_date = NULL, baseline_length = NULL,
-    distance_locations = NULL, distance_matrix = NULL,
+    list_of_locations = NULL,
     spline_lookup = NULL, spline_value = NULL, base_adj_meth = NULL,
     filters = NULL
   )
