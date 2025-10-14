@@ -2,12 +2,6 @@
 # Development of this software was sponsored by the U.S. Government under
 # contract no. 75D30124C19958
 
-get_location_information <- function(st, res) {
-  if (st == "US") return(us_distance_matrix())
-  if (res == "zip") return(zip_distance_matrix(st = st))
-  return(county_distance_matrix(st = st))
-}
-
 ds_ll <- list(
   scale_heatmap = list(
     l = "Count Transform",
@@ -101,15 +95,15 @@ data_explorer_server <- function(id, results, dc, cc) {
 
         req(results$filtered_records_count)
         d <- results$filtered_records_count[count > 0]
-
-        if (d[location %in% cc$distance_locations, .N] == 0) {
+        
+        if (d[location %in% cc$list_of_locations, .N] == 0) {
           validate("No Cases at these locations; check filters and/or state selection")
         }
         # splineClusterDetector::generate_summary_table(
         generate_summary_table(
           data = d,
           end_date = cc$end_date,
-          locations = cc$distance_locations,
+          locations = cc$list_of_locations,
           baseline_length = cc$baseline_length,
           test_length = cc$test_length,
           guard = 0
@@ -137,7 +131,7 @@ data_explorer_server <- function(id, results, dc, cc) {
 
         d <- results$filtered_records_count
 
-        if (d[location %in% cc$distance_locations, .N] == 0) {
+        if (d[location %in% cc$list_of_locations, .N] == 0) {
           validate("No Cases at these Locations; check State Selection")
         }
 
@@ -146,7 +140,7 @@ data_explorer_server <- function(id, results, dc, cc) {
         generate_heatmap_data(
           data = results$filtered_records_count,
           end_date = cc$end_date,
-          locations = isolate(cc$distance_locations),
+          locations = isolate(cc$list_of_locations),
           baseline_length = cc$baseline_length,
           test_length = cc$test_length,
           guard = 0
@@ -191,7 +185,7 @@ data_explorer_server <- function(id, results, dc, cc) {
 
         d <- results$filtered_records_count
 
-        if (d[location %in% cc$distance_locations, .N] == 0) {
+        if (d[location %in% cc$list_of_locations, .N] == 0) {
           validate("No Cases at these Locations; check State Selection")
         }
 
@@ -199,7 +193,7 @@ data_explorer_server <- function(id, results, dc, cc) {
         data <- generate_time_series_data(
           data = results$filtered_records_count,
           end_date = cc$end_date,
-          locations = isolate(cc$distance_locations),
+          locations = isolate(cc$list_of_locations),
           baseline_length = cc$baseline_length,
           test_length = cc$test_length,
           guard = 0

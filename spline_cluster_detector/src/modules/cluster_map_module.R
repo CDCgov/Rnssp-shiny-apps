@@ -59,7 +59,6 @@ cluster_map_server <- function(id, results, dc, cc) {
             generate_leaflet_data(
               cluster_data = results$cluster_data,
               state = dc$state2,
-              distance_matrix = cc$distance_matrix,
               level = dc$res,
               zctas_from_tigris = ZCTAS_FROM_TIGRIS
             ),

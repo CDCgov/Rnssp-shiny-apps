@@ -159,12 +159,7 @@ dl_sidebar_ui <- function(id) {
     selected = "patient",
     inline = TRUE
   )
-  # us_matrix_checkbox <- checkboxInput(
-  #   inputId = ns("us_matrix"),
-  #   label = labeltt(sb_ll[["us_matrix"]]),
-  #   value=F
-  # )
-
+  
   options_card <- card(
     card_body(
       hidden(accordion(
@@ -176,7 +171,6 @@ dl_sidebar_ui <- function(id) {
           facility_types,
           data_type_button,
           data_source_button
-          # us_matrix_checkbox
         )
       )),
     ),
@@ -406,15 +400,6 @@ dl_sidebar_server <- function(id, dc, cc, profile, valid_profile) {
         if (input$state == "District of Columbia") return("DC")
         state.abb[state.name == input$state]
       })
-
-
-      use_pre_calc_matrix <- reactiveVal(FALSE)
-      observe(use_pre_calc_matrix(TRUE)) |>
-        bindEvent(input$us_matrix, ignoreInit = TRUE, once = TRUE)
-
-      # pre_calc_matrix <- reactive(splineClusterDetector::us_distance_matrix()) |>
-      pre_calc_matrix <- reactive(us_distance_matrix()) |>
-        bindEvent(use_pre_calc_matrix())
 
 
       ## Observe the url box and check for errors

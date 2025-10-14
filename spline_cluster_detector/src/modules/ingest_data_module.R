@@ -2,26 +2,27 @@
 # Development of this software was sponsored by the U.S. Government under
 # contract no. 75D30124C19958
 
-get_location_information <- function(st, res) {
-  if (st == "US") return(us_distance_matrix())
-  if (res == "zip") return(zip_distance_matrix(st = st))
-  return(county_distance_matrix(st = st))
+get_list_of_locations <- function(st, res) {
+  if (st == "US") counties[latitude!="NULL", "fips"]
+  if (res == "zip") return(zipcodes[state==st & latitude!="NULL",zip_code])
+  return(counties[state==st & latitude!="NULL", fips])
 }
 
-ds_ll <- list(
-  scale_heatmap = list(
-    l = "Count Transform",
-    m = "Transformation to apply to the counts by location"
-  ),
-  zero_handle = list(
-    l = "Include Locations with Zero Counts",
-    m = "
-    By default, locations with no counts across the entire time period are not
-    shown. Slide switch to add those locations
-    "
-  )
-
-)
+# 
+# ds_ll <- list(
+#   scale_heatmap = list(
+#     l = "Count Transform",
+#     m = "Transformation to apply to the counts by location"
+#   ),
+#   zero_handle = list(
+#     l = "Include Locations with Zero Counts",
+#     m = "
+#     By default, locations with no counts across the entire time period are not
+#     shown. Slide switch to add those locations
+#     "
+#   )
+# 
+# )
 
 # ingest module
 ingested_data_ui <- function(id) {
@@ -64,19 +65,18 @@ ingested_data_server <- function(id, profile,  results, dc, cc, ibc, parent_sess
         results$data_details <- dt_events()$data_details
         results$records_description <- dt_events()$description
       })
-      observe({
-        cc$distance_locations <- dl()$loc_vec
-        cc$distance_matrix <- dl()$distance_matrix
-      })
 
       # Hide the data card if the global reactive use nssp changes
       observe(hideElement("ingest_data_card")) |> bindEvent(dc$USE_NSSP)
 
-
-      # only get new distance information is state or res change
+      observe({
+        cc$list_of_locations <- dl()
+      })
+      
+      # only get new list of locations only if ingest data button is clicked
       dl <- reactive({
         req(dc$state2, dc$res)
-        get_location_information(dc$state2, dc$res)
+        get_list_of_locations(dc$state2, dc$res)
       }) |>  bindEvent(ibc())
 
       # ---------------------------------------------
