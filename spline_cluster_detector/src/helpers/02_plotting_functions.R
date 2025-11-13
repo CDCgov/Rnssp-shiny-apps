@@ -59,7 +59,6 @@ create_custom_labels <- function(label_list) {
 generate_leaflet_data <- function(
     cluster_data,
     state,
-    distance_matrix,
     level = c("zip", "county"),
     zctas_from_tigris = TRUE
 ) {
@@ -71,8 +70,8 @@ generate_leaflet_data <- function(
   shape_data <- get_shape_file_from_tigris(st = state, level = level,zctas_from_tigris = zctas_from_tigris)
   
   # call corresponding function
-  if (level == "zip") ld <- generate_zip_leaflet_data(cluster_data, shape_data, distance_matrix)
-  if (level == "county") ld <- generate_county_leaflet_data(cluster_data, shape_data, distance_matrix)
+  if (level == "zip") ld <- generate_zip_leaflet_data(cluster_data, shape_data)
+  if (level == "county") ld <- generate_county_leaflet_data(cluster_data, shape_data)
   
   # create a factor 
   # Derive ordered cluster labels
@@ -102,7 +101,7 @@ generate_leaflet_data <- function(
 # have the same signatures, which is probably important, and it is very
 # important that they return the same structure to the wrapper function
 
-generate_zip_leaflet_data <- function(cluster_data, shape_data, distance_matrix) {
+generate_zip_leaflet_data <- function(cluster_data, shape_data) {
   
   # generate the cluster centers frame, along with their constituent zip codes
   cluster_centers <- get_cluster_center_locations(cluster_data)
@@ -132,13 +131,12 @@ generate_zip_leaflet_data <- function(cluster_data, shape_data, distance_matrix)
   return(ld)
 }
 
-generate_county_leaflet_data <- function(cluster_data, shape_data, distance_matrix) {
+generate_county_leaflet_data <- function(cluster_data, shape_data) {
   # Add code to get the leaflet data, at county level, incorporating clusters
   # that might have been detected
   ld <- generate_zip_leaflet_data(
     cluster_data = cluster_data,
-    shape_data = shape_data,
-    distance_matrix = distance_matrix
+    shape_data = shape_data
   )
 
   return(ld)
@@ -241,117 +239,6 @@ prepare_labels <- function(ld, level = c("zip", "county")) {
   labels
 }
 
-
-
-## Generate plot
-
-# generate_leaflet_plot <- function(
-#     leaflet_data,
-#     level = c("zip", "county"),
-#     color_options = list(
-#       palette = "Blues",
-#       reverse = TRUE,
-#       gradient_fraction = 0.5
-#     ),
-#     ...
-# ) {
-#   level <- match.arg(level)
-#   
-#   # --- Step 1: Get cluster center labels safely ---
-#   cluster_center_labels <- attr(leaflet_data, "cluster_center_labels")
-#   if (is.null(cluster_center_labels) || length(cluster_center_labels) == 0) {
-#     stop("Missing or empty 'cluster_center_labels' attribute in leaflet_data.")
-#   }
-#   
-#   # --- Step 2: Prepare popup/hover labels for polygons ---
-#   labels <- prepare_labels(leaflet_data, level = level)
-# 
-#   # --- Step 3: Generate colors for the cluster labels ---
-#   default_color_options <- list(
-#     palette = "Blues",
-#     reverse = TRUE,
-#     gradient_fraction = 0.5
-#   )
-#   
-#   colors <- do.call(
-#     prepare_colors,
-#     c(
-#       list(cluster_center_labels = cluster_center_labels),
-#       modifyList(default_color_options, color_options)
-#     )
-#   )
-#   
-#   # --- Step 4: Get user-friendly names for tooltips (e.g., county names) ---
-#   # Ensure center_names and colors are aligned with cluster_center_labels
-#   center_info <- leaflet_data |>
-#     dplyr::filter(GEOID %in% cluster_center_labels) |>
-#     dplyr::distinct(GEOID, NAME) |>
-#     dplyr::mutate(label_center = factor(GEOID, levels = cluster_center_labels)) |>
-#     dplyr::arrange(label_center)
-#   
-#   # Defensive check
-#   if (nrow(center_info) != length(cluster_center_labels)) {
-#     stop("Mismatch between cluster_center_labels and available NAME values in leaflet_data.")
-#   }
-#   
-#   # Step 5 - Build segment divs with tooltips
-#   segment_divs <- paste(sprintf(
-#     "<div title='%s' style='flex: 1; height: 100%%; background-color: %s; cursor: help;'></div>",
-#     center_info$NAME,
-#     colors(as.character(center_info$label_center))
-#   ), collapse = "\n")
-#   
-#   # --- Step 6: Assemble the leaflet plot ---
-#   p <- leaflet() |>
-#     addPolygons(
-#       data = leaflet_data,
-#       color = "black",
-#       weight = 1,
-#       opacity = 1,
-#       fillOpacity = 1.0,
-#       fillColor = ~ colors(label_factor),
-#       label = labels
-#     ) |>
-#     addControl(
-#       html = htmltools::HTML(sprintf("
-#         <style>
-#           .leaflet-control.info.legend {
-#             background: transparent !important;
-#             box-shadow: none !important;
-#             border: none !important;
-#             padding: 0 !important;
-#             margin: 0 !important;
-#           }
-#         </style>
-# 
-#         <div class='legend-container' style='text-align: center; font-family: sans-serif;'>
-#           <div class='text-body fw-bold mb-1' style='font-size: 12px;'>
-#             Clusters Ordered by Date and Size
-#           </div>
-#           <div style='
-#             width: 200px;
-#             height: 20px;
-#             display: flex;
-#             border: 1px solid var(--bs-border-color);
-#             border-radius: 4px;
-#             overflow: hidden;
-#           '>
-#             %s
-#           </div>
-#         </div>
-#       ", segment_divs)),
-#       position = "topright"
-#     ) |>
-#     leaflet.extras::setMapWidgetStyle(list(background = "var(--bs-body-bg)")) |>
-#     leaflet.extras::addFullscreenControl() |>
-#     leaflet.extras::addResetMapButton()
-#   
-#   return(list(
-#     plot = p,
-#     labels = labels,
-#     colors = colors
-#   ))
-# }
 
 generate_leaflet_plot <- function(
     leaflet_data,

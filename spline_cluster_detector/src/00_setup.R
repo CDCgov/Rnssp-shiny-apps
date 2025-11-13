@@ -11,13 +11,16 @@ suppressPackageStartupMessages({
   packages <- c(
     "shiny", "cli", "geosphere", "data.table",
     "bslib", "bsicons", "DT", "ggplot2", "leaflet",
-    "leaflet.extras", "tigris", "sf",
+    "leaflet.extras", "tigris", "sf", "geodist",
     "shinyjs", "shinycssloaders", "plotly", "kableExtra"
   )
 })
 
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
-  install.packages(setdiff(packages, rownames(installed.packages())))
+  install.packages(
+    setdiff(packages, rownames(installed.packages())),
+    repos = c(getOption("repos"), "http://cran.rstudio.com/")
+  )
 }
 
 lapply(packages, library, character.only = TRUE)

@@ -9,6 +9,12 @@ output:
     toc_depth: 3
 ---
 
+## October 10th, 2025
+
+-   Minor changes to cluster table include changing "Cluster Date" header to "Cluster Start Date", and correction to duration calculation
+-   Improved distance calculation speed, especially for large states with many units
+
+
 ## September 29th, 2025
 
 -   The maximum cluster length / test interval has been increased to 90 days.

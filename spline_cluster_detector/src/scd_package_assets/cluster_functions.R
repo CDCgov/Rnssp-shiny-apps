@@ -210,11 +210,13 @@ generate_case_grids <- function(
 #' by date (over increasing distance)
 #' @param cg object of class `CaseGrids`, such as returned from the
 #'   `generate_case_grids()`
-#' @param distance_matrix a square matrix of distances with diagonal zero and
-#'   dimensions (colnames same as rownames) indicating locations
+#' @param distance_matrix a square distance matrix, named on both dimensions or
+#'   a list of distance vectors, one for each location
 #' @param distance_limit numeric value indicating the distance threshold to
 #'   define "near" locations; must be input in the same units as the distances
-#'   in the `distance_matrix`
+#'   in the `distance_matrix`. Note that if passing the list version of
+#'   distance_matrix, this limit has already been used in that construction and
+#'   thus is ignored
 #' @export
 #' @returns an object of class `NearbyClusterGrids` which is list of two
 #'   dataframes, including "baseline" (has the nearby information for baseline
@@ -238,12 +240,26 @@ gen_nearby_case_info <- function(
   # this is dataframe that has, for each target location, a list of all other
   # locations within distance_limit, and the distance to that location
 
-  wd <- data.table::rbindlist(
-    apply(distance_matrix, 1, \(x) {
-      utils::stack(x[x <= distance_limit])
-    }),
-    idcol = "target"
-  )
+  if("matrix" %in% class(distance_matrix)) {
+    wd <- data.table::rbindlist(
+      apply(distance_matrix, 1, \(x) {
+        utils::stack(x[x <= distance_limit])
+      }),
+      idcol = "target"
+    )
+  }
+
+  if("list" %in% class(distance_matrix)) {
+    wd <- data.table::rbindlist(
+      lapply(distance_matrix, \(d) {
+        data.table::data.table(
+          values=d,
+          ind=names(d)
+        )
+      }),
+      idcol = "target"
+    )
+  }
 
   data.table::setnames(wd, c("target", "distance_value", "location"))
 
@@ -476,8 +492,8 @@ add_spline_threshold <- function(oe_grid, spline_lookup = NULL) {
 #' in 'dt_keep'
 
 #' @param cluster_alert_table an object of class `ClusterAlertTable`
-#' @param distance_matrix a distance matrix with named dimensions, where the
-#'   names are the candidate locations used to generate ClusterAlertTable
+#' @param distance_matrix a square distance matrix, named on both dimensions or
+#'   a list of distance vectors, one for each location
 #' @export
 #' @returns a list including a data.frame of clusters and another frame of
 #'   individual location counts
@@ -508,7 +524,24 @@ compress_clusters <- function(
   # be used as a column in dt_keep:
   nr_locs <- rep(NA, nrow(dt_clust))
 
-  location_set <- colnames(distance_matrix)
+  matrix_index_func <- function(dm, dt_clust, ndx) {
+    dm[ndx, ] <= dt_clust[1, distance_value]
+  }
+
+  list_index_func <- function(dm, dt_clust, ndx) {
+    dm[[ndx]] <= dt_clust[1, distance_value]
+  }
+
+
+  if("matrix" %in% class(distance_matrix)) {
+    location_set <- colnames(distance_matrix)
+    dm_index_f <- matrix_index_func
+  } else {
+    location_set <- names(distance_matrix)
+    dm_index_f <- list_index_func
+  }
+
+
 
   # Now take the first row of dt_clust, find the index of its center location
   # (target) in location_set
@@ -517,7 +550,7 @@ compress_clusters <- function(
   # The maximum distance (miles) from the center location to another location in
   # this cluster is in the column distance_value Now collect all of the
   # locations in this cluster within the maximum distance
-  loc_set <- location_set[distance_matrix[ndx, ] <= dt_clust[1, distance_value]]
+  loc_set <- location_set[dm_index_f(distance_matrix, ndx, dt_clust)]
 
   # Initialize dt_keep to have the number of rows equal to the number of cluster
   # centers with at least one positive alertGap Some of these rows will probably
@@ -552,7 +585,8 @@ compress_clusters <- function(
     ndx <- which(location_set == dt_clust[1, target])
     # Now find the set of all locations in this cluster
     loc_set_curr <- location_set[
-      distance_matrix[ndx, ] <= dt_clust[1, distance_value]
+      dm_index_f(distance_matrix, ndx, dt_clust)
+      #distance_matrix[ndx, ] <= dt_clust[1, distance_value]
     ]
     # Keep the new cluster only if none of its locations is contained in a
     # previous cluster in dt_keep
@@ -598,8 +632,8 @@ compress_clusters <- function(
 #' surrogate for significance is 'alertGap', or log(observed/expected) minus the
 #' threshold that the spline assigns to the observed value`.
 #' @param cluster_alert_table an object of class `ClusterAlertTable`
-#' @param distance_matrix a distance matrix with named dimensions, where the
-#'   names are the candidate locations used to generate ClusterAlertTable
+#' @param distance_matrix a square distance matrix, named on both dimensions or
+#'   a list of distance vectors, one for each location
 #' @export
 #' @returns a list including a data.frame of clusters and another frame of
 #'   individual location counts
@@ -618,7 +652,13 @@ compress_clusters_fast <- function(
   id <- distance_value <- target <- v1 <- nr_locs <- NULL
 
   # generate helper function, used internally.
-  get_locs <- function(d, m, t) which(m[t, ] <= d) |> names()
+  get_locs_matrix <- function(d, m, t) which(m[t, ] <= d) |> names()
+  get_locs_list <- function(d, m, t) which(m[[t]] <= d) |> names()
+  if("matrix" %in% class(distance_matrix)) {
+    get_locs_f <- get_locs_matrix
+  } else {
+    get_locs_f <- get_locs_list
+  }
 
   # add an id to the list of rows
   cluster_alert_table[, id := .I]
@@ -630,7 +670,7 @@ compress_clusters_fast <- function(
   # locations that are within distance_value from this target
   y <- cluster_alert_table[
     ,
-    list(v1 = get_locs(distance_value, distance_matrix, target)),
+    list(v1 = get_locs_f(distance_value, distance_matrix, target)),
     by = c("id", "target", "location")
   ]
 
@@ -712,9 +752,10 @@ add_location_counts <- function(cluster_list, cases) {
     location_counts <- cases[
       date >= cluster_alert_table$date[j] &
         date <= cluster_alert_table$detect_date[j] &
-        location %in% clust_locs
+        location %in% clust_locs &
+        count>0
     ] |>
-      _[, list(count = sum(count)), location][order(location)]
+      _[, list(count = sum(count),max_date = max(date)), location][order(location), max_date:=max(max_date)]
 
     zero_cl <- setdiff(clust_locs, unique(location_counts$location))
     if (length(zero_cl) > 0) {
@@ -722,29 +763,34 @@ add_location_counts <- function(cluster_list, cases) {
         location_counts,
         data.table::data.table(
           location = zero_cl,
-          count = 0
+          count = 0,
+          max_date = location_counts[["max_date"]][[1]]
         )
       )
     }
 
     # add the current cluster center location to this filtered table
     location_counts[, target := cluster_alert_table$target[j]]
-    data.table::setnames(location_counts, c("location", "count", "target"))
+    data.table::setnames(location_counts, c("location", "count", "max_date", "target"))
 
     # concatenate these rows to table for all cluster
     cluster_location_counts <- rbind(cluster_location_counts, location_counts)
   }
 
-  clusters <- list(
-    cluster_alert_table = cluster_alert_table,
-    cluster_location_counts = cluster_location_counts
+  # add the max date of each cluster to the main table
+  cluster_alert_table <- merge(
+    cluster_alert_table,
+    unique(cluster_location_counts[, .(target, max_date)]),
+    by = c("target"),
   )
+  cluster_location_counts[, max_date:=NULL]
 
   nr_locs <- NULL
 
   # check that nr_locations match
   s <- cluster_alert_table[, list(target, nr_locs)][order(target)]
   t <- cluster_location_counts[, list(nr_locs = .N), target][order(target)]
+  setkey(s, NULL) # this drops any key from s to make sure it is identical to t
   if (!identical(s, t)) {
     cli::cli_abort(
       paste0(
@@ -753,6 +799,13 @@ add_location_counts <- function(cluster_list, cases) {
       )
     )
   }
+
+  clusters <- list(
+    cluster_alert_table = cluster_alert_table,
+    cluster_location_counts = cluster_location_counts
+  )
+
+
 
   class(clusters) <- c(class(clusters), "clusters")
 
@@ -763,7 +816,8 @@ add_location_counts <- function(cluster_list, cases) {
 #' Function will return clusters, given a frame of case counts by location and
 #' date, a distance matrix, a spline lookup table, and other parameters
 #' @param cases a frame of case counts by location and date
-#' @param distance_matrix a square distance matrix, named on both dimensions
+#' @param distance_matrix a square distance matrix, named on both dimensions or
+#'   a list of distance vectors, one for each location
 #' @param detect_date a date that indicates the end of the test window in which
 #'   we are looking for clusters
 #' @param spline_lookup default NULL; either a spline lookup table, which is a
@@ -801,8 +855,8 @@ add_location_counts <- function(cluster_list, cases) {
 #'   require that any final clusters (post compression from candidate rows) have
 #'   at least \code{post_cluster_min_count} cases, when aggregated over all
 #'   locations within the identified cluster
-#' @param use_fast boolean (default = FALSE) - set to TRUE to use the fast
-#'   verson of the compress clusters function
+#' @param use_fast boolean (default = TRUE) - set to TRUE to use the fast verson
+#'   of the compress clusters function
 #' @param return_interim boolean (default = FALSE) - set to TRUE to return all
 #'   interim objects of the find_clusters() function
 #' @export
@@ -930,6 +984,13 @@ find_clusters <- function(
     obs_expected_frame_with_spline[
       data.table::between(observed, min_clust_cases, max_clust_cases)
     ]
+
+  # If nrow is zero, this is not an error, just no clusters
+  if(nrow(obs_expected_frame_with_spline) == 0) {
+    cli::cli_alert_info("No clusters found")
+    if(return_interim == TRUE) return(interim_results)
+    else return(invisible())
+  }
 
   # 5. Compress Clusters
   if (use_fast) {
