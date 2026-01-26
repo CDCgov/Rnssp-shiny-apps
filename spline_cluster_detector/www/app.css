@@ -1,0 +1,10 @@
+.shiny-output-error-validation {
+  color: red;
+}
+
+.card { border: 0; }
+
+.disabled-tab {
+  pointer-events: none;
+  opacity: 0.4;
+}

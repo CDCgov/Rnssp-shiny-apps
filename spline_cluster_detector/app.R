@@ -19,25 +19,18 @@ source("src/00_setup.R")
 
 ui <- page(
   theme = THEME,
-  tags$head(tags$style(HTML(paste0("
-        .shiny-output-error-validation {
-          color: red;
-        }
-        .card {border: 0;}
-        .bslib-full-screen-enter {
-          background-color: ", PRIMARY_COLOR, "; /* A darker gray for better contrast in dark mode */
-          color: #fff; /* White text for contrast */
-        }
-        .disabled-tab {
-          pointer-events: none;
-          opacity: 0.4;
-        }
-      ")))),
+  tags$head(
+    tags$link(rel="stylesheet", href="app.css"),
+    tags$script(src="strip_titles.js"),
+    tags$style(HTML(sprintf("
+    .bslib-full-screen-enter { background-color: %s; color: #fff; }
+  ", PRIMARY_COLOR)))
+  ),
   useShinyjs(),
   page_navbar(
     title = "Spline Based Cluster Determination",
-    nav_panel("Data Loader", value = "data_loader", data_loader_ui("data_loader")),
-    nav_panel("Clustering", value = "clustering", clustering_ui("clustering")),
+    nav_panel("1. Data Loader", value = "data_loader", data_loader_ui("data_loader")),
+    nav_panel("2. Clustering", value = "clustering", clustering_ui("clustering")),
     nav_panel(
       "Documentation",
       includeMarkdown('src/documentation/documentation.Rmd')
@@ -81,7 +74,10 @@ server <- function(input, output, session) {
     # url and source info
     url_params = NULL, source_data = NULL, USE_NSSP = FALSE, data_type = NULL,
     data_source = NULL, custom_url = NULL, custom_url_valid = TRUE,
-    ad_hoc = FALSE, dedup = FALSE
+    ad_hoc = FALSE, dedup = FALSE,
+    
+    step_to_cluster = 0
+    
   )
   
   # ----------------------------------------------------------------------
@@ -128,6 +124,13 @@ server <- function(input, output, session) {
   data_loader_server("data_loader", results, data_config, cluster_config, profile, valid_profile)
   clustering_server("clustering", results, data_config, cluster_config, profile)
   report_server("report", results, data_config, cluster_config)
+  
+  # Observe the step to cluster value; when increment from zero; step to cluster
+  observe({
+    if(data_config$step_to_cluster>0) {
+      updateTabsetPanel(inputId = "main_navbar", selected="clustering")
+    }
+  })
   
 }
 

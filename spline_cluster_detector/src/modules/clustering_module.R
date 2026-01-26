@@ -4,7 +4,7 @@ clustering_ui <- function(id) {
   btn_class <- "btn-primary btn-sm"
   ns <- NS(id)
   nav_panel(
-    title = "Clustering",
+    title = "",
     layout_sidebar(
       sidebar = sidebar(
         id = ns("cluster_sidebar"),
@@ -16,14 +16,6 @@ clustering_ui <- function(id) {
           label_busy = "Computing Clusters"
         )
       ),
-      # navset_card_underline(
-      #   data_explorer_ui(id = ns("explorer")),
-      #   compute_clusters_ui(id = ns("cluster")),
-      #   cluster_map_ui(id = ns("map")),
-      #   cluster_line_listing_ui(id = ns("cluster_ll")),
-      #   selected = "Data Explorer",
-      #   id = ns("cluster_navset")
-      # )
       navset_card_underline(
         nav_panel("Data Explorer", value = "explorer", data_explorer_ui(id = ns("explorer"))),
         nav_panel("Cluster Summary", value = "cluster", compute_clusters_ui(id = ns("cluster"))),
