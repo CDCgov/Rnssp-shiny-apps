@@ -8,6 +8,13 @@ output:
       smooth_scroll: true
     toc_depth: 3
 ---
+## January 26th, 2026
+
+-   There two main tabs for loading data and for clustering have been updated with numbers to clarify that there is a two step process: first load data, then do clustering. This point is emphasized with a clickable hyperlink that appears (in red) below the Ingest Data button, and takes user to the Clustering tab
+-   Time Series plots can now be filtered to view any single sub-region (say a specific county or zip code) rather than just the aggregate time series for the entire region
+-   The color options for the map are in a sidebar; this sidebar is now closed by default
+-   Other minor improvements to tool tips, hover over information, etc.
+
 
 ## October 10th, 2025
 

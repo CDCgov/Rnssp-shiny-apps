@@ -8,21 +8,6 @@ get_list_of_locations <- function(st, res) {
   return(counties[state==st & latitude!="NULL", fips])
 }
 
-# 
-# ds_ll <- list(
-#   scale_heatmap = list(
-#     l = "Count Transform",
-#     m = "Transformation to apply to the counts by location"
-#   ),
-#   zero_handle = list(
-#     l = "Include Locations with Zero Counts",
-#     m = "
-#     By default, locations with no counts across the entire time period are not
-#     shown. Slide switch to add those locations
-#     "
-#   )
-# 
-# )
 
 # ingest module
 ingested_data_ui <- function(id) {
@@ -210,7 +195,7 @@ ingested_data_server <- function(id, profile,  results, dc, cc, ibc, parent_sess
           )
         },
         server = TRUE)
-
+      
       # Download Handler
       output$download_ingested_data <- downloadHandler(
         filename = function() "data.csv",

@@ -5,7 +5,9 @@
 ds_ll <- list(
   scale_heatmap = list(
     l = "Count Transform",
-    m = "Transformation to apply to the counts by location"
+    m = "
+    A non-linear transformation (sqrt, log) can aid in visualization when 
+    otherwise small volume regions would be obscured by higher-volume regions"
   ),
   zero_handle = list(
     l = "Include Locations with Zero Counts",
@@ -39,8 +41,6 @@ data_explorer_ui <- function(id) {
   nav_panel(
     title = "Data Explorer",
     navset_card_pill(
-      # widths = c(1,11),
-      # well = FALSE,
       id = ns("explorer_navset"),
       selected = "Data Summary",
       nav_panel(
@@ -56,9 +56,7 @@ data_explorer_ui <- function(id) {
         card(
           full_screen = TRUE,
           min_height = "500px",
-          withSpinner(plotlyOutput(ns("heatmap"))
-                      # , caption="Heatmap Loading"
-          ),
+          withSpinner(plotlyOutput(ns("heatmap")), caption="Heatmap Loading"),
           option_controls,
           class = "bg-transparent border-0"
         )
@@ -68,10 +66,12 @@ data_explorer_ui <- function(id) {
         card(
           full_screen = TRUE,
           min_height = "500px",
-          withSpinner(plotlyOutput(ns("tSeries"))
-                      # , caption="Time Series Loading"
+          withSpinner(
+            plotlyOutput(ns("tSeries")),
+            caption="Time Series Loading"
           ),
-          class = 'bg-transparent border-0'
+          class = 'bg-transparent border-0',
+          selectInput(inputId = ns("ts_region_dropdown"),label="Region",choices="All")
         )
       )
     )
@@ -178,34 +178,85 @@ data_explorer_server <- function(id, results, dc, cc) {
       output$heatmap <- renderPlotly({
         heatmap()
       })
+      
+      ts_choices <- reactive({
+        req(results$filtered_records_count)
+        
+        relevant_dates <- as.IDate(
+          c(
+            get_baseline_dates(cc$end_date, cc$test_length, cc$baseline_length)[1],
+            cc$end_date
+          )
+        )
+        print(relevant_dates)
+
+        # updates choices
+        choices = unique(
+          results$filtered_records_count[between(date, relevant_dates[1], relevant_dates[2])] |> 
+            _[count>0, .(location, display_name)]
+        )
+        print(choices)
+        
+        # add the "All" option, and return
+        c("All" = "All", setNames(
+          choices[["location"]], nm = choices[["display_name"]]
+        ))
+        
+      })
+      
+      observe({
+        req(ts_choices())
+        
+        updateSelectInput(
+          inputId = "ts_region_dropdown", 
+          choices = ts_choices()
+        )
+      })
 
       tsdata <- reactive({
 
         req(results$filtered_records_count)
+        req(input$ts_region_dropdown)
 
         d <- results$filtered_records_count
-
-        if (d[location %in% cc$list_of_locations, .N] == 0) {
+        locations <- cc$list_of_locations
+        
+        # if time series drop down is not "ALL", then we should filter
+        # on these locations
+        if(input$ts_region_dropdown!="All") {
+          locations = input$ts_region_dropdown
+        }
+        
+        if (d[location %in% locations, .N] == 0) {
           validate("No Cases at these Locations; check State Selection")
         }
 
-        # data <- splineClusterDetector::generate_time_series_data(
         data <- generate_time_series_data(
-          data = results$filtered_records_count,
+          data = d,
           end_date = cc$end_date,
-          locations = isolate(cc$list_of_locations),
+          locations = locations,
           baseline_length = cc$baseline_length,
           test_length = cc$test_length,
           guard = 0
         )
+        
+        list(
+          data = data, 
+          location = names(ts_choices())[which(ts_choices() == input$ts_region_dropdown)]
+        )
       })
 
       time_series_plot <- reactive({
-        # p <- splineClusterDetector::generate_time_series_plot(
+        req(tsdata())
+        validate(
+          need(tsdata()$data[, sum(date_count)]>0, "No case counts for the selected location")
+        )
+        
         p <- generate_time_series_plot(
-          time_series_data = tsdata(),
+          time_series_data = tsdata()$data,
           end_date = cc$end_date,
-          plot_type = "plotly"
+          plot_type = "plotly", 
+          locations = tsdata()$location
         )
 
         return(p)

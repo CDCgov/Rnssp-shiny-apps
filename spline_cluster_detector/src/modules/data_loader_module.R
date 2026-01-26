@@ -5,7 +5,7 @@ data_loader_ui <- function(id) {
   ns <- NS(id)
 
   nav_panel(
-    title = "Data Loader",
+    title = "",
     layout_sidebar(
       sidebar = sidebar(
         id = ns("config_sidebar"),
@@ -16,7 +16,8 @@ data_loader_ui <- function(id) {
           label = "Ingest Data",
           class = btn_class,
           label_busy = "Ingesting Data"
-        )
+        ),
+        uiOutput(ns("next_stp_msg"))
       ),
       ingested_data_ui(ns("ingest"))
     )
@@ -41,11 +42,29 @@ data_loader_server <- function(id, results, data_config, cluster_config, profile
       # ---------------------------------------------
       ingest_btn_click <- reactive(input$ingest_btn)
       
+      # Show the next step message, if there is data
+      output$next_stp_msg <- renderUI({
+        req(results$records)
+        tags$span(
+          actionLink(
+            inputId = ns("go_cluster"),
+            label   = "Next Step: Clustering",
+            style="color:red;"
+          )
+        )
+      })
+      
+      # Monitor for step_to_cluster link click
+      observe(data_config$step_to_cluster <- isolate(data_config$step_to_cluster) + 1) |> 
+        bindEvent(input$go_cluster, ignoreInit = TRUE)
+        
+      
       # ---------------------------------------------
       # Clear critical objects if data_config$USE_NSSP changes
       # ---------------------------------------------
       observe({
         data_config$source_data <- NULL
+        data_config$step_to_cluster <- 0
         results$records <- NULL
         results$records_description <- NULL
         results$map <- NULL

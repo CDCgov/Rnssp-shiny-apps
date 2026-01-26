@@ -20,6 +20,8 @@ cluster_map_ui <- function(id) {
         card_footer(htmlOutput(outputId = ns("cluster_psa")))
       )), 
       sidebar = sidebar(
+        id = ns("map_sidebar"),
+        open = FALSE,
         selectInput(ns("palette"), label = "Palette", 
                     choices=c("Blues", "Greens", "Purples","plasma", "inferno", "magma", "viridis", "cividis"),
                     selected = "Blues"
@@ -41,14 +43,6 @@ cluster_map_server <- function(id, results, dc, cc) {
       clusters_found <- reactive({
         "data.frame" %in% class(results$cluster_data[[1]])
       })
-
-      # # # REVEAL THE MAP ONLY IF CLUSTERS FOUND
-      # observe({
-      #     showElement(id = "map_btn")
-      #   } else {
-      #     hideElement(id = "map_btn")
-      #   }
-      # }) |> bindEvent(results$cluster_data)
 
       # Reactive holds the map data
       map_data <- reactive({
