@@ -348,16 +348,6 @@ generate_observed_expected <- function(
   )]
 
   # add the log of observed to expected
-  if (adjust == TRUE) {
-    dt_cases_grid_clust[, log_obs_exp := data.table::fifelse(
-      expected == 0,
-      log(observed / (expected + adj_constant)),
-      log(observed / expected)
-    )]
-  } else {
-    dt_cases_grid_clust[, log_obs_exp := log(observed / expected)]
-  }
-
   dt_cases_grid_clust[, log_obs_exp := data.table::fifelse(
     expected == 0 & adjust == TRUE,
     log(observed / (expected + adj_constant)),
