@@ -33,7 +33,7 @@ clsb_ll <- list(
     l = "Baseline Adjustment Method",
     m = "Method used to adjust the baseline counts to avoid divide-by-zero issues in estimating the log(observed/expected).
       Choices include: add a constant (1) to the expected only when otherwise a divide-by-zero would occur; include
-      the test interval data in the baseline counts, and no adjustment.
+      the test interval data in the baseline counts (default), and no adjustment.
       "
   ),
   spline = list(
@@ -72,9 +72,9 @@ clust_sidebar_ui <- function(id) {
     inputId = ns("base_adj_meth"),
     label = labeltt(clsb_ll[["base_adj_meth"]]),
     choices = c("Add One As Needed" = "add_one",
-      # "Add One to All Locations" = "add_one_global",
       "Add Test Data to Baseline" = "add_test",
-      "No Adjustment" = "none")
+      "No Adjustment" = "none"),
+    selected = "add_test"
   )
 
   adv_acc_panel <- accordion_panel(
