@@ -21,9 +21,9 @@ zip_distance_matrix <- function(
   # match unit, and create a lookup
   unit <- match.arg(unit)
   unit_factors <- c(
-    "miles" = 0.00062137,
+    "miles" = 1/1609.344,
     "kilometers" = 1 / 1000.0,
-    "meters" = 1
+    "meters" = 1.0
   )
 
 
@@ -96,9 +96,9 @@ county_distance_matrix <- function(
   # match unit, and create a lookup
   unit <- match.arg(unit)
   unit_factors <- c(
-    "miles" = 0.00062137,
+    "miles" = 1/1609.344,
     "kilometers" = 1 / 1000.0,
-    "meters" = 1
+    "meters" = 1.0
   )
 
   # global declarations to avoid check CMD errors
@@ -174,7 +174,7 @@ us_distance_matrix <- function(
   # match unit, and create a lookup
   unit <- match.arg(unit)
   unit_factors <- c(
-    "miles" = 0.00062137,
+    "miles" = 1/1609.344,
     "kilometers" = 1 / 1000.0,
     "meters" = 1
   )
@@ -247,7 +247,7 @@ create_dist_list <- function(
 
   level = match.arg(level)
   unit = match.arg(unit)
-  factor = list("miles" = 1609, "kilometers" = 1000, "meters"=1)[[unit]]
+  factor = list("miles" = 1609.344, "kilometers" = 1000, "meters"=1)[[unit]]
 
   # In case threshold is null, revert to default
   if(is.null(threshold)) {
