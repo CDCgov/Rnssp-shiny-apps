@@ -188,14 +188,12 @@ data_explorer_server <- function(id, results, dc, cc) {
             cc$end_date
           )
         )
-        print(relevant_dates)
-
+        
         # updates choices
         choices = unique(
           results$filtered_records_count[between(date, relevant_dates[1], relevant_dates[2])] |> 
             _[count>0, .(location, display_name)]
         )
-        print(choices)
         
         # add the "All" option, and return
         c("All" = "All", setNames(
