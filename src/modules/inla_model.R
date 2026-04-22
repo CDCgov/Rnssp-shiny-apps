@@ -349,6 +349,7 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
     function(input, output, session) {
       
       model_state <- reactiveVal("idle")
+      model_error_message <- reactiveVal(NULL)
       feat_store  <- init_feature_df()
       
       im$feature_store   <- feat_store
@@ -356,6 +357,32 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
       im$features_df     <- feat_store$features_df
       
       current_model_res <- reactiveVal(NULL)
+
+      format_model_failure_message <- function(msg) {
+        msg <- msg %||% ""
+        msg_one_line <- paste(strsplit(msg, "\n", fixed = TRUE)[[1]], collapse = " ")
+        msg_one_line <- trimws(gsub("\\s+", " ", msg_one_line))
+        convergence_patterns <- c(
+          "did not converge",
+          "failed to converge",
+          "vb.correction",
+          "delta\\[0\\] is nan",
+          "'from' must be a finite number",
+          "must be a finite number"
+        )
+        is_convergence_failure <- nzchar(msg_one_line) &&
+          any(grepl(convergence_patterns, msg_one_line, ignore.case = TRUE))
+        
+        if (is_convergence_failure || !nzchar(msg_one_line)) {
+          "Model did not converge, please modify formula and try again."
+        } else {
+          paste(
+            "Model fitting was unsuccessful:",
+            msg_one_line,
+            "Please modify formula and try again."
+          )
+        }
+      }
       
       observe({
         im$nforecasts <- input$nforecasts
@@ -380,35 +407,46 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
         res <- current_model_res()
         req(res, isTRUE(res$ok), !is.null(res$model), !is.null(res$data_class))
         
-        model_state("postprocessing")
-        feat_store$register_default_calculated_features()
-        
-        # Calculate the builtin model-based features once at fit time so viz
-        # tabs only need to read stored columns.
-        calculated_feature_ids <- feat_store$rv$order[vapply(feat_store$rv$order, function(fid) {
-          f <- feat_store$get_feature(fid)
-          !is.null(f) && (f$feature_type %||% "") %in% c("mean", "quantile", "confidence_interval", "exceedance_probability")
-        }, logical(1))]
-        calculated_features <- lapply(calculated_feature_ids, feat_store$get_feature)
-        
-        res$data_class$data <- calculate_and_store_calculated_features(
-          out = res$data_class$data,
-          features = calculated_features,
-          model = res$model,
-          data_cls = res$data_class
+        tryCatch(
+          {
+            model_state("postprocessing")
+            feat_store$register_default_calculated_features()
+            
+            # Calculate the builtin model-based features once at fit time so viz
+            # tabs only need to read stored columns.
+            calculated_feature_ids <- feat_store$rv$order[vapply(feat_store$rv$order, function(fid) {
+              f <- feat_store$get_feature(fid)
+              !is.null(f) && (f$feature_type %||% "") %in% c("mean", "quantile", "confidence_interval", "exceedance_probability")
+            }, logical(1))]
+            calculated_features <- lapply(calculated_feature_ids, feat_store$get_feature)
+            
+            res$data_class$data <- calculate_and_store_calculated_features(
+              out = res$data_class$data,
+              features = calculated_features,
+              model = res$model,
+              data_cls = res$data_class
+            )
+            res$data_class <- sort_data_class_data(res$data_class)
+            
+            im$data_cls <- res$data_class
+            im$posterior <- res$data_class$data
+            
+            feat_store$sync_base_columns(
+              data = res$data_class$data,
+              data_cls = res$data_class,
+              exclude_cols = unique(unlist(lapply(calculated_features, function(f) f$out_cols %||% character(0))))
+            )
+            
+            model_error_message(NULL)
+            model_state("ready")
+          },
+          error = function(e) {
+            friendly_msg <- format_model_failure_message(conditionMessage(e))
+            model_error_message(friendly_msg)
+            model_state("error")
+            showNotification(friendly_msg, type = "error", duration = 10)
+          }
         )
-        res$data_class <- sort_data_class_data(res$data_class)
-        
-        im$data_cls <- res$data_class
-        im$posterior <- res$data_class$data
-        
-        feat_store$sync_base_columns(
-          data = res$data_class$data,
-          data_cls = res$data_class,
-          exclude_cols = unique(unlist(lapply(calculated_features, function(f) f$out_cols %||% character(0))))
-        )
-        
-        model_state("ready")
       }) |> bindEvent(current_model_res())
       
       # observe the time_res and update the forecasts label and 
@@ -419,7 +457,7 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
           numericInput(
             inputId =  session$ns("nforecasts"), 
             label = labeltt(label_list_im[[lv[["label"]]]]),
-            value = lv[["value"]]
+            value = lv[["value"]],min = 0
           )
         })
       })
@@ -545,6 +583,7 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
         
         # is model ready to run?
         model_ready <- model_ready_to_run(results$data, formula_r(), input)
+        model_error_message(NULL)
         model_state("fitting")
         req(model_ready[["valid"]])
         
@@ -637,13 +676,16 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
               if (is.null(model$inla_model)) {
                 ok <- FALSE
                 err_msg <- "INLA model did not converge (inla_model is NULL)."
+                model_error_message(format_model_failure_message(err_msg))
                 model_state("error")
               } else if (is.character(model$inla_model)) {
                 ok <- FALSE
-              err_msg <- model$inla_model  # <-- preserve the exact error string
+                err_msg <- model$inla_model
+                model_error_message(format_model_failure_message(err_msg))
                 model_state("error")
               }
-            if (ok){
+              if (ok){
+                model_error_message(NULL)
                 model_state("ready")
               }
               
@@ -656,6 +698,9 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
               )
             },
             error = function(e) {
+              friendly_msg <- format_model_failure_message(conditionMessage(e))
+              model_error_message(friendly_msg)
+              model_state("error")
               list(model = NULL, data_class = data_cls, formula = NULL, ok = FALSE, msg = conditionMessage(e))
             }
           )
@@ -675,21 +720,8 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
         res <- inla_model_new()
         
         if (!isTRUE(res$ok)) {
-          
-          msg <- res$msg
-          if (!is.null(msg) && nzchar(msg)) {
-            # collapse multi-line messages
-            msg <- paste(strsplit(msg, "\n")[[1]], collapse = " ")
-          } else {
-            msg <- "Unknown error"
-          }
-          
           showNotification(
-            paste0(
-              "Error! INLA model fitting failed with message: \n",
-              msg,
-              "\nTry modifying the formula and rerunning."
-            ),
+            model_error_message() %||% format_model_failure_message(res$msg),
             type = "error",
             duration = 10
           )
@@ -744,13 +776,18 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
       observe({
         res <- inla_model_new()
         req(res)
+        req(isTRUE(res$ok))
         current_model_res(res)
       }) |> bindEvent(inla_model_new())
       
       inla_model <- reactiveVal(NULL)
       
       observe(inla_model(loaded_model()))
-      observe(inla_model(inla_model_new()))
+      observe({
+        res <- inla_model_new()
+        req(isTRUE(res$ok))
+        inla_model(res)
+      }) |> bindEvent(inla_model_new())
       
       output$download_model_ui <- renderUI({
         req(!is.null(inla_model()))
@@ -896,7 +933,10 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
           )
         } else if (s == "error") {
           tagList(
-            tags$div(class = "text-danger fw-semibold", "Model estimation failed. Please update the model and rerun.")
+            tags$div(
+              class = "text-danger fw-semibold",
+              model_error_message() %||% "Model did not converge, please modify formula and try again."
+            )
           )
         } else { # "ready"
           verbatimTextOutput(ns("inla_model_object"))

@@ -19,6 +19,7 @@ extras_ui <- function(id) {
         
         # First item in the pop over is a button that when clicked will
         # lead to opening the documentation modal
+        
         actionButton(
           ns("open_docs"),
           label = tagList(
@@ -67,6 +68,12 @@ extras_ui <- function(id) {
                  span(class = "mode-text", "Dark")
             )
           )
+        ),
+        # add a refresh browser button
+        input_task_button(
+          id = ns("refresh"),
+          label = "Refresh App",
+          class = "btn-primary btn-sm"
         )
       ),
       
@@ -87,6 +94,9 @@ extras_server <- function(id) {
     # Register the documentation module server and keep its UI ready for the modal.
     documentation_server("documentation")
     docs_body <- uiOutput(session$ns("documentation-app_documentation"))
+    
+    # Refresh the whole app if user clicks on refresh
+    observe(session$reload()) |> bindEvent(input$refresh)
     
     # Open the modal when the documentation book button is clicked
     observe({
