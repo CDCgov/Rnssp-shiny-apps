@@ -254,7 +254,7 @@ data_loader_server <- function(id, dc, results, profile, valid_profile, cache_tr
         
         # Only pull data if the proposed url differs from an existing one
         if(is.null(data()$url_single) || url_single != data()$url_single) {
-          data<- withProgress(
+          api_data<- withProgress(
             message = "Pulling data via API",
             detail = "Please wait ...", 
             value = 0.2,
@@ -270,17 +270,18 @@ data_loader_server <- function(id, dc, results, profile, valid_profile, cache_tr
               profile = profile()
             )
           )
+          if (input$time_res=="weekly"){
+            api_data$data <- wk_to_date(api_data$data, "date")
+          } else if (input$time_res=="daily"){
+            api_data$data$date<-as.Date(api_data$data$date)
+          }
+          
         } else {
-          data <- data()
+          api_data <- data()
         }
         
-        if (input$time_res=="weekly"){
-          data$data <- wk_to_date(data$data, "date")
-        } else if (input$time_res=="daily"){
-          data$data$date<-as.Date(data$data$date)
-        }
         
-        data
+        api_data
         
       }) |> bindEvent(input$load_data_btn)
       
