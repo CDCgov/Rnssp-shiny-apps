@@ -15,9 +15,9 @@ label_list_ts <- list(
     l = "Select Region(s)",
     m = "Click or type the name(s) of the regions you would like to plot using the dropdown."
   ),
-  fix_ts_y_axis = list(
-    l = "Fix y-axis",
-    m = 'Toggle on for a common/fixed axis across all plots (recommended when scale is set to "proportion"); Toggle off for independent y-axes (recommended when scale is set to "count").'
+  free_ts_y_axis = list(
+    l = "Free y-axis",
+    m = 'Toggle on for independent y-axes across plots (recommended when scale is set to "count"); Toggle off for a common/shared axis (recommended when scale is set to "proportion").'
   )
 )
 
@@ -44,9 +44,9 @@ viz_time_series_ui <- function(id) {
         plotlyOutput(ns("ts_plots")),
         card_footer(
           input_switch(
-            id = ns("fix_ts_y_axis"),
-            label = labeltt(label_list_ts[["fix_ts_y_axis"]]),
-            value=FALSE
+            id = ns("free_ts_y_axis"),
+            label = labeltt(label_list_ts[["free_ts_y_axis"]]),
+            value=TRUE
           )
         )
       )
@@ -117,7 +117,7 @@ viz_time_series_server <- function(id, im, results, feature_store) {
         build_time_series_plot_spec(
           region_ids = input$viz_regions,
           ci = as.numeric(ci_feature$params$ci %||% 0.95) * 100,
-          fixed_y = input$fix_ts_y_axis,
+          fixed_y = !isTRUE(input$free_ts_y_axis),
           display_col = "region",
           use_count = identical(input$ts_use_count, "Count"),
           future_steps = im$nforecasts

@@ -10,9 +10,9 @@ label_list_ots <- list(
     l = "Separate feature panels",
     m = "Toggle on to create a separate subplot for each selected feature within each region. Toggle off to overlay selected features within each region."
   ),
-  fix_y_axis = list(
-    l = "Fix y-axis",
-    m = "Toggle on for a common/fixed axis across all plots. Toggle off for independent y-axes."
+  free_y_axis = list(
+    l = "Free y-axis",
+    m = "Toggle on for independent y-axes across plots. Toggle off for a common/shared axis."
   )
 )
 
@@ -39,9 +39,9 @@ viz_other_time_series_ui <- function(id) {
           value = FALSE
         ),
         input_switch(
-          id = ns("fix_ts_y_axis"),
-          label = labeltt(label_list_ots[["fix_y_axis"]]),
-          value = FALSE
+          id = ns("free_ts_y_axis"),
+          label = labeltt(label_list_ots[["free_y_axis"]]),
+          value = TRUE
         )
       ),
       card(
@@ -274,7 +274,7 @@ viz_other_time_series_server <- function(id, im, feature_store) {
         plot_dt = as.data.frame(plot_dt),
         region_ids = as.character(input$viz_regions %||% character(0)),
         separate_features = isTRUE(input$split_feature_panels),
-        fixed_y = isTRUE(input$fix_ts_y_axis)
+        fixed_y = !isTRUE(input$free_ts_y_axis)
       )
     })
   })

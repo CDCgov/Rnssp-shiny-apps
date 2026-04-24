@@ -2,14 +2,31 @@
 # Development of this software was sponsored by the U.S. Government under
 # contract no. 75D30124C19958
 
-# Libraries
+#################################################################
+# Run the package handler
+source("src/04_package_handler.R")
+INLA_MIN = "25.04.09" # Set the minimum INLA version
+EPISTEMIC_MIN = "1.6.0" # Set the minimum epistemic version
+AUTO_INSTALL = TRUE # Should missing (installable) packages be auto-installed?
+TEST_INLA = TRUE # Should we test inla?
+
+# Call the handler; any failures will abort app launch
+package_handler(
+  inla_min = INLA_MIN,
+  epistemic_min = EPISTEMIC_MIN,
+  auto_install = AUTO_INSTALL, 
+  test_inla = TEST_INLA
+)
+#################################################################
+
+
+# Load the libraries
 library(shiny)
 library(shinyjs)
 library(cli)
 library(data.table)
 library(bslib)
 library(bsicons)
-library(DT)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -29,27 +46,14 @@ library(leafpop)
 library(reactable)
 library(viridisLite)
 library(sf)
-
-# Rnssp is required, but too heavy to load
-# lets check for existence instead
-
-# epistemic required
 library(epistemic)
-
-# Check minimum epistemic version
-min_version = "1.5.1"
-if(packageVersion("epistemic")<min_version) {
-  cli::cli_abort(
-    paste0("epistemic version must be at least ", min_version)
-  )
-}
 
 
 # Profile
 source("src/01_credentials.R")
 ALLOW_SHINY_CREDENTIALS <- TRUE
 # regardless of shiny credentials allowable or not, if this is running in rstudio
-# set CREDENTIALS via the get_profile() function
+# set CREDENTIALS via the rstudio get_profile() function
 if(rstudioapi::isAvailable() == TRUE) {
   CREDENTIALS = get_profile(title = "Bayesian Spatiotemporal Modeling")
 } else {
@@ -482,6 +486,54 @@ html:not([data-bs-theme='dark']) .mode-side.right .mode-icon { opacity:0.45; }
   outline: 3px solid rgba(13,110,253,0.35);
   outline-offset: 2px;
 }
+")
+
+THEME <- bs_add_rules(THEME, "
+  .reactable-top-controls {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.35rem;
+  }
+
+  .reactable-top-controls .form-group,
+  .reactable-top-controls .mb-3 {
+    margin-bottom: 0;
+  }
+
+  .reactable-top-controls .reactable-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 240px;
+    margin-left: auto;
+  }
+
+  .reactable-top-controls .reactable-search-wrap label {
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .reactable-top-controls .reactable-search-wrap .form-control {
+    min-width: 240px;
+  }
+
+  .reactable-bottom-controls {
+    margin-top: 0.75rem;
+  }
+
+  .rt-page-size-select,
+  .rt-page-info,
+  .rt-page-button {
+    color: var(--bs-body-color) !important;
+  }
+
+  .rt-page-size-select {
+    background-color: var(--bs-body-bg) !important;
+    border-color: var(--bs-border-color) !important;
+  }
 ")
 
 
