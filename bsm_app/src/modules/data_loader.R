@@ -32,6 +32,7 @@ button_list_dl <-list(
     "Open file browser to select a saved query on your local machine. ",
     "Saved queries are zip files containing json and rds objects with the ",
     "file suffix .bsm_query."),
+  clear_filters = "Reset all table filters and search text.",
   download_csv = "Download retrieved data and save as a csv file on your local machine.",
   save_query = "Save the query to a bsm_query file so that it can be reloaded later.",
   add_covariates = "Add covariates by loading another data file. These covariates can be included in the model later."
@@ -337,9 +338,15 @@ data_loader_server <- function(id, dc, results, profile, valid_profile, cache_tr
             add_button_hover(title = button_list_dl[["add_covariates"]],
                 input_task_button(ns("cov_button_ui"), "Add Covariates")),
             add_button_hover(title = button_list_dl[["download_csv"]],
-                downloadButton(ns("download_data"),
-                           "Download to CSV",
-                           class = "btn-primary")),
+                actionButton(
+                  ns("download_data"),
+                  "Download to CSV",
+                  class = "btn-primary",
+                  onclick = sprintf(
+                    "if (window.Reactable) Reactable.downloadDataCSV('%s', 'data.csv');",
+                    ns("ingested_data")
+                  )
+                )),
             add_button_hover(title = button_list_dl[["save_query"]], 
                 downloadButton(ns("save_query"),
                            "Save Query",
@@ -375,20 +382,34 @@ data_loader_server <- function(id, dc, results, profile, valid_profile, cache_tr
         ) 
       
       
-      output$ingested_data <- renderDT({
+      output$ingested_data <- reactable::renderReactable({
         req(data()$data)
         d <- data()$data[, .SD, .SDcols = patterns("^(?!countyfips).*$", perl=T)]
-        
-        # identify columns to round
-        cols_to_round <- non_integer_cols_to_round(d)
-
-        DT::datatable(
+        build_standard_reactable(
           d,
-          colnames = map_table_names_to_display(colnames(d)),
-          rownames = F
-        ) |> formatRound(cols_to_round, digits=4)
-          
+          table_id = session$ns("ingested_data"),
+          digits = 4,
+          searchable = FALSE
+        )
       })
+      
+      observe({
+        session$sendCustomMessage(
+          "set-reactable-search",
+          list(
+            id = session$ns("ingested_data"),
+            value = input$ingested_data_search %||% ""
+          )
+        )
+      }) |> bindEvent(input$ingested_data_search, ignoreInit = FALSE)
+      
+      observe({
+        session$sendCustomMessage(
+          "clear-reactable-filters",
+          list(id = session$ns("ingested_data"))
+        )
+        updateTextInput(session, "ingested_data_search", value = "")
+      }) |> bindEvent(input$clear_filters, ignoreInit = TRUE)
       
       
       output$data_card_body <- renderUI({
@@ -406,13 +427,23 @@ data_loader_server <- function(id, dc, results, profile, valid_profile, cache_tr
             tags$p(class = "text-muted", "Nothing has been loaded yet.")
           )
         } else {
-          DT::DTOutput(ns("ingested_data"))
+          tagList(
+            div(
+              class = "reactable-top-controls",
+              add_button_hover(
+                title = button_list_dl[["clear_filters"]],
+                actionButton(ns("clear_filters"), "Clear Filters", class = "btn-primary")
+              ),
+              div(
+                class = "reactable-search-wrap",
+                tags$label(`for` = ns("ingested_data_search"), "Search"),
+                textInput(ns("ingested_data_search"), NULL, placeholder = "Search displayed data")
+              )
+            ),
+            reactable::reactableOutput(ns("ingested_data"), width = "100%")
+          )
         }
       })
-      
-      output$download_data <- downloadHandler(
-        filename = "data.csv" , content = \(file) data.table::fwrite(data()$data, file)
-      )
       
     }
   )

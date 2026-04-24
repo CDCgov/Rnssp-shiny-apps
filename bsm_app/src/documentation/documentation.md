@@ -250,12 +250,9 @@ Advanced users may want to perform additional customization for the model and/or
 
 After loading base query data, you can click `Add Covariates`.
 
-Supported upload formats include:
+Currently supported upload formats include:
 
 - `.csv`
-- `.xlsx`
-- `.xls`
-- `.parquet`
 
 When importing covariates, you can specify:
 
@@ -559,6 +556,11 @@ Common issues and suggested checks are listed below.
 - confirm that the feature was created successfully in `Add Feature`
 - check the feature filters in the relevant visualization tab
 - some views only display certain feature types or scales
+
+### App crashes or hangs
+- click the `Refresh App` button from the gear menu or refresh your browser to start from a clean session
+- try running with a smaller dataset or simpler formula to make sure that the app is actually stuck and not running slowly
+- if the issue reoccurs, document the steps that lead to the crash and create an issue on the github page
 
 [Back to top](#top)
 

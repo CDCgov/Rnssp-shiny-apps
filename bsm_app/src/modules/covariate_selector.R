@@ -52,7 +52,9 @@ add_covariate_loader <- function(
   ns <- session$ns
   
   cov_dt       <- reactiveVal(NULL)
+  cov_raw_dt   <- reactiveVal(NULL)
   cov_filtered <- reactiveVal(FALSE)
+  cov_imputed  <- reactiveVal(FALSE)
   
   # UI state: show/hide imputation controls
   show_impute_ui <- reactiveVal(FALSE)
@@ -62,8 +64,11 @@ add_covariate_loader <- function(
   
   # ---- Helpers ----
   normalize_fips <- function(x) {
-    x <- sprintf("%05s", as.character(x))
-    gsub(" ", "0", x, fixed = TRUE)
+    x_chr <- trimws(as.character(x))
+    out <- sprintf("%05s", x_chr)
+    out <- gsub(" ", "0", out, fixed = TRUE)
+    out[is.na(x) | !nzchar(x_chr)] <- NA_character_
+    out
   }
   
   show_missing_warnings <- function(dt, cols) {
@@ -115,6 +120,97 @@ add_covariate_loader <- function(
     if (!nzchar(x[1])) return(NULL)
     x[1]
   }
+  get_selected_cov_keys <- function(dt = cov_raw_dt()) {
+    cols <- names(dt %||% data.table::data.table())
+    region_col <- null_if_blank(input$cov_region_col)
+    date_col   <- null_if_blank(input$cov_date_col)
+
+    list(
+      region_col = if (!is.null(region_col) && region_col %in% cols) region_col else NULL,
+      date_col   = if (!is.null(date_col) && date_col %in% cols) date_col else NULL
+    )
+  }
+
+  apply_selected_key_parsing <- function(dt) {
+    dt <- data.table::copy(dt)
+    keys <- get_selected_cov_keys(dt)
+
+    if (!is.null(keys$region_col)) {
+      region_vals <- dt[[keys$region_col]]
+      region_chr <- trimws(as.character(region_vals))
+      invalid_region <- !is.na(region_vals) & nzchar(region_chr) & !grepl("^\\d{1,5}$", region_chr)
+
+      if (any(invalid_region)) {
+        showNotification(
+          paste0(
+            "Column '", keys$region_col,
+            "' could not be parsed as a 5-digit FIPS code. The region selection was cleared."
+          ),
+          type = "warning",
+          duration = 6
+        )
+        updateSelectInput(session, "cov_region_col", selected = "")
+      } else {
+        dt[, (keys$region_col) := normalize_fips(get(keys$region_col))]
+      }
+    }
+    if (!is.null(keys$date_col)) {
+      date_vals <- dt[[keys$date_col]]
+      date_chr <- trimws(as.character(date_vals))
+      parsed_dates <- suppressWarnings(as.Date(date_vals))
+      invalid_date <- !is.na(date_vals) & nzchar(date_chr) & is.na(parsed_dates)
+
+      if (any(invalid_date)) {
+        showNotification(
+          paste0(
+            "Column '", keys$date_col,
+            "' could not be parsed as dates. The date selection was cleared."
+          ),
+          type = "warning",
+          duration = 6
+        )
+        updateSelectInput(session, "cov_date_col", selected = "")
+      } else {
+        dt[, (keys$date_col) := parsed_dates]
+      }
+    }
+
+    dt
+  }
+
+  reset_cov_working_data <- function(notify = TRUE) {
+    raw_dt <- cov_raw_dt()
+    if (is.null(raw_dt)) return(invisible(FALSE))
+
+    had_derived_state <- isTRUE(cov_filtered()) || isTRUE(cov_imputed())
+
+    cov_dt(apply_selected_key_parsing(raw_dt))
+    cov_filtered(FALSE)
+    cov_imputed(FALSE)
+    show_impute_ui(FALSE)
+    updateSelectInput(session, "cov_impute_method", selected = "mean_overall")
+
+    if (notify && had_derived_state) {
+      showNotification(
+        "Changing the date or region column reset filtered and imputed covariate data.",
+        type = "warning",
+        duration = 6
+      )
+    }
+
+    invisible(had_derived_state)
+  }
+  
+  safe_which <- function(x) {
+    if (is.null(x)) return(integer(0))
+    x <- unlist(x, use.names = FALSE)
+    if (!is.logical(x)) {
+      x <- as.logical(x)
+    }
+    x[is.na(x)] <- FALSE
+    which(x)
+  }
+
   impute_selected <- function(dt, region_col = NULL, date_col = NULL, feature_cols, method) {
     dt <- data.table::copy(dt)
     
@@ -191,7 +287,7 @@ add_covariate_loader <- function(
           dt[, fill := fills$fill[1]]
         }
         
-        idx <- which(is.na(dt[[nm]]) & !is.na(dt[["fill"]]) & !is.nan(dt[["fill"]]))
+        idx <- safe_which(is.na(dt[[nm]]) & !is.na(dt[["fill"]]) & !is.nan(dt[["fill"]]))
         if (length(idx) > 0) data.table::set(dt, i = idx, j = nm, value = dt[["fill"]][idx])
         
         dt[, fill := NULL]
@@ -250,9 +346,9 @@ add_covariate_loader <- function(
           # assign to all matching rows (same date? + same region) that are NA
           if (length(by_cols) > 0) {
             dval <- targets[[by_cols]][i]
-            idx <- which(dt[[by_cols]] == dval & dt[[region_col]] == f & is.na(dt[[nm]]))
+            idx <- safe_which(dt[[by_cols]] == dval & dt[[region_col]] == f & is.na(dt[[nm]]))
           } else {
-            idx <- which(dt[[region_col]] == f & is.na(dt[[nm]]))
+            idx <- safe_which(dt[[region_col]] == f & is.na(dt[[nm]]))
           }
           
           if (length(idx) > 0) data.table::set(dt, i = idx, j = nm, value = fill)
@@ -274,12 +370,12 @@ add_covariate_loader <- function(
     if (ext == "csv") {
       return(data.table::as.data.table(readr::read_csv(path, show_col_types = FALSE)))
     }
-    if (ext %in% c("xlsx", "xls")) {
-      return(data.table::as.data.table(readxl::read_excel(path)))
-    }
-    if (ext == "parquet") {
-      return(data.table::as.data.table(arrow::read_parquet(path)))
-    }
+    # if (ext %in% c("xlsx", "xls")) {
+    #   return(data.table::as.data.table(readxl::read_excel(path)))
+    # }
+    # if (ext == "parquet") {
+    #   return(data.table::as.data.table(arrow::read_parquet(path)))
+    # }
     cli::cli_abort("Unsupported file type: ", ext)
   }
   
@@ -297,6 +393,9 @@ add_covariate_loader <- function(
     updateSelectInput(session, "cov_impute_method", selected = "mean_overall")
     show_impute_ui(FALSE)
     cov_dt(NULL)
+    cov_raw_dt(NULL)
+    cov_filtered(FALSE)
+    cov_imputed(FALSE)
   }
   
   
@@ -315,7 +414,8 @@ add_covariate_loader <- function(
         fileInput(
           ns("cov_file"),
           labeltt(label_list_cs[['upload_covariates']]),
-          accept = c(".csv", ".xlsx", ".xls", ".parquet")
+          #accept = c(".csv", ".xlsx", ".xls", ".parquet")
+          accept = c(".csv")
         ),
         
         uiOutput(ns("cov_region_col_ui")),
@@ -359,7 +459,7 @@ add_covariate_loader <- function(
         
         div(style = "margin-top: 8px;"),
         strong("Preview:"),
-        DT::DTOutput(ns("cov_preview_dt")),
+        reactable::reactableOutput(ns("cov_preview_dt"), width = "100%"),
         
         footer = tagList(
           add_button_hover(title = button_list_cs[["cancel"]],actionButton(ns("cov_cancel"), "Cancel", class = "btn-primary")),
@@ -424,8 +524,10 @@ add_covariate_loader <- function(
       data.table::setnames(dt, make.unique(names(dt)))
     }
     
-    cov_dt(dt)
+    cov_raw_dt(data.table::copy(dt))
+    cov_dt(apply_selected_key_parsing(dt))
     cov_filtered(FALSE)
+    cov_imputed(FALSE)
     
     cols <- names(cov_dt())
     
@@ -512,14 +614,7 @@ add_covariate_loader <- function(
       server = TRUE
     )
     
-    if (is.null(region_col)) return()
-    
-    dt <- data.table::copy(cov_dt())
-    tryCatch({
-      dt[, (region_col) := normalize_fips(get(region_col))]
-    }, error = function(msg){"Error parsing region column. Skipping."}
-    )
-    cov_dt(dt)
+    reset_cov_working_data(notify = TRUE)
   }) |> bindEvent(input$cov_region_col)
   
   
@@ -551,14 +646,7 @@ add_covariate_loader <- function(
       server = TRUE
     )
     
-    if (is.null(date_col)) return()
-    
-    dt <- data.table::copy(cov_dt())
-    tryCatch({
-      dt[, (date_col) :=as.Date(get(date_col))]
-    }, error = function(msg){"Error parsing date column. Skipping"}
-    )
-    cov_dt(dt)
+    reset_cov_working_data(notify = TRUE)
   })|> bindEvent(input$cov_date_col)
   
   
@@ -618,18 +706,56 @@ add_covariate_loader <- function(
     dt[, keep, with = FALSE]
   })
   
-  output$cov_preview_dt <- DT::renderDT({
-    DT::datatable(
-      preview_dt(),
-      rownames = FALSE,
-      options = list(
-        scrollX = TRUE,
-        scrollY = "45vh",
-        pageLength = 10,
-        lengthMenu = c(10, 25, 50, 100)
+  output$cov_preview_dt <- reactable::renderReactable({
+    df <- preview_dt()
+    if (ncol(df) == 0) {
+      return(
+        reactable::reactable(
+          data.frame(Message = "Select at least one preview column to display.", check.names = FALSE),
+          searchable = FALSE,
+          filterable = FALSE,
+          sortable = FALSE,
+          pagination = FALSE,
+          bordered = TRUE,
+          striped = FALSE,
+          highlight = FALSE,
+          fullWidth = TRUE,
+          theme = BS_REACTABLE_THEME
+        )
       )
+    }
+    digits <- 4L
+    cols_to_round <- non_integer_cols_to_round(df, names = TRUE)
+    
+    col_defs <- lapply(names(df), function(col) {
+      is_num <- is.numeric(df[[col]])
+      reactable::colDef(
+        name = map_table_names_to_display(col, keep_names = FALSE),
+        align = if (is_num) "right" else "left",
+        format = if (is_num && col %in% cols_to_round) reactable::colFormat(digits = digits) else NULL
+      )
+    })
+    names(col_defs) <- names(df)
+    
+      reactable::reactable(
+        df,
+        columns = col_defs,
+        defaultPageSize = min(nrow(df), 10L),
+        pageSizeOptions = c(10, 25, 50),
+        searchable = FALSE,
+        filterable = FALSE,
+        sortable = TRUE,
+        highlight = FALSE,
+        striped = TRUE,
+        bordered = TRUE,
+      resizable = FALSE,
+      wrap = FALSE,
+      showPageSizeOptions = TRUE,
+      defaultColDef = reactable::colDef(minWidth = 110),
+      fullWidth = TRUE,
+      theme = BS_REACTABLE_THEME
     )
-  }, server = TRUE)
+  })
   
   # ---- Filter ----
   observe({
@@ -750,6 +876,7 @@ add_covariate_loader <- function(
     feats_num <- feats[vapply(feats, function(nm) is.numeric(dt_before[[nm]]), logical(1))]
     if (length(feats_num) == 0) {
       cov_dt(dt_after[, .__row_id__ := NULL])
+      cov_imputed(TRUE)
       showNotification("Imputation applied (no numeric features selected).", type = "message")
       return()
     }
@@ -768,7 +895,7 @@ add_covariate_loader <- function(
       imp_by_row <- apply(imputed_mask, 1, function(rowmask) paste(feats_num[rowmask], collapse = ","))
       # imp_by_row is "" when nothing was imputed in that row
       
-      idx <- which(nzchar(imp_by_row))
+      idx <- safe_which(nzchar(imp_by_row))
       if (length(idx) > 0) {
         dt_after[idx, imputed_features := ifelse(
           imputed_features == "",
@@ -783,6 +910,7 @@ add_covariate_loader <- function(
     
     
     cov_dt(dt_after)
+    cov_imputed(TRUE)
     
     show_missing_warnings(dt_after, feats)
     

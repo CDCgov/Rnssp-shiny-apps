@@ -278,14 +278,123 @@ map_table_names_to_display <- function(names, title_case = FALSE, quantile_suffi
 # formatRound() call, and so in this case it is better to use indices. 
 non_integer_cols_to_round <- function(d, names=FALSE) {
   
-  is_integer_vector <- \(x) {
-    all(x==floor(x)) && all(abs(x)<=.Machine$integer.max)
+  is_integer_vector <- function(x) {
+    if (!is.numeric(x) || inherits(x, c("Date", "POSIXct", "POSIXlt", "POSIXt"))) {
+      return(FALSE)
+    }
+    
+    x <- x[!is.na(x)]
+    if (!length(x)) return(TRUE)
+    
+    if (!all(is.finite(x))) return(FALSE)
+    
+    all(abs(x - round(x)) < sqrt(.Machine$double.eps)) &&
+      all(abs(x) <= .Machine$integer.max)
   }
 
-  cols_to_convert <- which(sapply(d, \(col) is.numeric(col) && !is_integer_vector(col), USE.NAMES = FALSE))
+  cols_to_convert <- which(vapply(
+    d,
+    function(col) is.numeric(col) && !is_integer_vector(col),
+    logical(1)
+  ))
   if(names) cols_to_convert <- names(d)[cols_to_convert]
   
   cols_to_convert
+}
+
+
+# Build a consistently styled reactable with the app's shared filter widgets
+# and display-name mapping.
+build_standard_reactable <- function(
+    df,
+    table_id,
+    digits = 2L,
+    quantile_suffix = NULL,
+    searchable = TRUE,
+    filterable = TRUE,
+    page_size = NULL,
+    page_size_options = c(5, 10, 15, 25, 50, 100)
+) {
+  req(!missing(df), !missing(table_id))
+  
+  display_names <- map_table_names_to_display(
+    names(df),
+    quantile_suffix = quantile_suffix,
+    keep_names = TRUE
+  )
+  if (is.null(names(display_names))) names(display_names) <- names(df)
+  
+  cols_to_round <- non_integer_cols_to_round(df, names = TRUE)
+  digits <- max(0L, min(10L, as.integer(digits %||% 2L)))
+  date_cols <- names(df)[vapply(df, inherits, logical(1), "Date")]
+  
+  col_defs <- lapply(names(df), function(col) {
+    label <- display_names[[col]] %||% col
+    is_num <- is.numeric(df[[col]])
+    is_date <- col %in% date_cols
+    is_rounded <- col %in% cols_to_round
+    
+    if (is_num) {
+      reactable::colDef(
+        name = label,
+        align = "right",
+        filterable = filterable,
+        filterMethod = numeric_range_filter_method,
+        filterInput = function(values, name) numeric_range_filter_input(values, name, table_id),
+        format = if (is_rounded) reactable::colFormat(digits = digits) else NULL
+      )
+    } else if (is_date) {
+      reactable::colDef(
+        name = label,
+        filterable = filterable,
+        filterMethod = date_filter_method,
+        filterInput = function(values, name) date_filter_input(values, name, table_id)
+      )
+    } else {
+      reactable::colDef(
+        name = label,
+        filterable = filterable,
+        filterMethod = checkbox_filter_method,
+        filterInput = function(values, name) checkbox_filter_input(values, name, table_id)
+      )
+    }
+  })
+  names(col_defs) <- names(df)
+  
+  if (is.null(page_size)) {
+    page_size <- if (nrow(df) > 0) min(nrow(df), 10L) else 10L
+  }
+  
+  reactable::reactable(
+    df,
+    columns = col_defs,
+    defaultPageSize = page_size,
+    pageSizeOptions = page_size_options,
+    searchable = searchable,
+    filterable = filterable,
+    highlight = TRUE,
+    striped = TRUE,
+    bordered = TRUE,
+    resizable = TRUE,
+    wrap = TRUE,
+    defaultColDef = reactable::colDef(
+      minWidth = 120,
+      headerStyle = list(
+        whiteSpace = "normal",
+        wordBreak = "break-word",
+        lineHeight = "1.2",
+        paddingTop = "0.6rem",
+        paddingBottom = "0.7rem",
+        overflow = "visible"
+      ),
+      style = list(
+        whiteSpace = "nowrap"
+      )
+    ),
+    showPageSizeOptions = TRUE,
+    fullWidth = TRUE,
+    theme = BS_REACTABLE_THEME
+  )
 }
 
 

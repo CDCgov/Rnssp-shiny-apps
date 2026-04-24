@@ -856,29 +856,6 @@ inla_model_server <- function(id, dc, im, results, cache_transitions) {
         inla_model()$formula |> cat()
       })
       
-      output$inla_model_data <- renderDT({
-        req(inla_model())
-        dat <- inla_model()$data_class$data
-        # Ensure it's a proper data.frame, even if tibble/list/etc.
-        dat <- tryCatch(as.data.frame(dat), error = function(e) NULL)
-        
-        validate(
-          need(!is.null(dat), "No table available in model"),
-          need(ncol(dat) > 0, "Model table has no columns")
-        )
-        
-        # identify columns to round
-        cols_to_round <- non_integer_cols_to_round(dat)
-        
-        datatable(
-          dat,
-          colnames = map_table_names_to_display(colnames(dat)),
-          rownames=FALSE
-        ) |>
-          DT::formatRound(columns=cols_to_round, digits=2)
-
-      })
-      
       output$download_data <- downloadHandler(
         filename = "processed_data.csv" ,
         content = \(file) data.table::fwrite(inla_model()$data_class$data, file)

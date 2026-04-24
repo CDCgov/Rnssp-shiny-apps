@@ -45,23 +45,24 @@ viz_posterior_ui <- function(id) {
       card(
         card_body(
           style = "overflow: visible;",
-          tags$style(HTML(sprintf("
-            #%s .dataTables_scrollBody thead,
-            #%s .dataTables_scrollBody thead * {
-              visibility: hidden !important;
-              pointer-events: none !important;
-            }
-          ", ns("posterior_wrap"), ns("posterior_wrap")))),
           div(
             id = ns("posterior_wrap"),
             style = "width: 100%;",
-            reactable::reactableOutput(ns("posterior_data"), width = "100%"),
             div(
-              style = "display:flex; gap:10px; align-items:center;",
+              class = "reactable-top-controls",
               add_button_hover(
                 title = button_list_pi[["clear_filters"]],
                 actionButton(ns("clear_filters"), class = "btn-primary btn-sm", "Clear Filters")
               ),
+              div(
+                class = "reactable-search-wrap",
+                tags$label(`for` = ns("posterior_data_search"), "Search"),
+                textInput(ns("posterior_data_search"), NULL, placeholder = "Search displayed data")
+              )
+            ),
+            reactable::reactableOutput(ns("posterior_data"), width = "100%"),
+            div(
+              class = "reactable-bottom-controls",
               add_button_hover(
                 title = button_list_pi[["csv_button"]],
                 actionButton(
@@ -174,7 +175,18 @@ viz_posterior_server <- function(id, im, results, feature_store) {
           "clear-reactable-filters",
           list(id = table_id)
         )
+        updateTextInput(session, "posterior_data_search", value = "")
       }) |> bindEvent(input$clear_filters, ignoreInit = TRUE)
+      
+      observe({
+        session$sendCustomMessage(
+          "set-reactable-search",
+          list(
+            id = table_id,
+            value = input$posterior_data_search %||% ""
+          )
+        )
+      }) |> bindEvent(input$posterior_data_search, ignoreInit = FALSE)
       
       output$posterior_data <- reactable::renderReactable({
         req(input$dt_digits)
@@ -185,77 +197,11 @@ viz_posterior_server <- function(id, im, results, feature_store) {
         keep <- intersect(keep, names(df))
         if (length(keep)) df <- df[, ..keep]
         
-        display_names <- map_table_names_to_display(
-          names(df),
-          quantile_suffix = NULL,
-          keep_names = TRUE
-        )
-        if (is.null(names(display_names))) names(display_names) <- names(df)
-        
-        cols_to_round <- non_integer_cols_to_round(df)
-        digits <- max(0, min(10, as.integer(input$dt_digits %||% 2)))
-        date_cols <- names(df)[sapply(df, inherits, "Date")]
-        
-        col_defs <- lapply(names(df), function(col) {
-          label <- display_names[[col]] %||% col
-          is_num <- is.numeric(df[[col]])
-          is_rounded <- col %in% names(cols_to_round)
-          is_date <- col %in% date_cols
-          
-          if (is_num) {
-            reactable::colDef(
-              name = label,
-              align = "right",
-              filterable = TRUE,
-              filterMethod = numeric_range_filter_method,
-              filterInput = function(values, name) numeric_range_filter_input(values, name, table_id),
-              format = if (is_rounded) reactable::colFormat(digits = digits) else NULL
-            )
-          } else if (is_date) {
-            reactable::colDef(
-              name = label,
-              filterable = TRUE,
-              filterMethod = date_filter_method,
-              filterInput = function(values, name) date_filter_input(values, name, table_id)
-            )
-          } else {
-            reactable::colDef(
-              name = label,
-              filterable = TRUE,
-              filterMethod = checkbox_filter_method,
-              filterInput = function(values, name) checkbox_filter_input(values, name, table_id)
-            )
-          }
-        })
-        names(col_defs) <- names(df)
-        
-        page_size <- min(nrow(df), 10L)
-        
-        reactable::reactable(
+        build_standard_reactable(
           df,
-          columns = col_defs,
-          defaultPageSize = page_size,
-          pageSizeOptions = c(5, 10, 15, 25, 50, 100),
-          searchable = TRUE,
-          filterable = TRUE,
-          highlight = TRUE,
-          striped = TRUE,
-          bordered = TRUE,
-          resizable = TRUE,
-          wrap = TRUE,
-          defaultColDef = reactable::colDef(
-            minWidth = 120,
-            headerStyle = list(
-              whiteSpace = "normal",
-              wordBreak = "break-word",
-              lineHeight = "1.1"
-            ),
-            style = list(
-              whiteSpace = "nowrap"
-            )
-          ),
-          fullWidth = TRUE,
-          theme = BS_REACTABLE_THEME
+          table_id = table_id,
+          digits = input$dt_digits,
+          searchable = FALSE
         )
       })
       

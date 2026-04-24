@@ -87,5 +87,21 @@ global_ui_tags <- tags$head(
         cb.checked = true;
       });
     });
+    
+    Shiny.addCustomMessageHandler('set-reactable-search', function(message) {
+      var id = message.id;
+      var value = message.value;
+
+      if (!window.Reactable) {
+        console.warn('[set-reactable-search] window.Reactable not found');
+        return;
+      }
+
+      try {
+        Reactable.setSearch(id, value || '');
+      } catch (e) {
+        console.warn('[set-reactable-search] Reactable.setSearch failed:', e);
+      }
+    });
   "))
 )
