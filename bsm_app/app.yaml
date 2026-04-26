@@ -1,0 +1,11 @@
+name: Bayesian Spatio-temporal Modeling (BSM) App
+
+description: >
+  This application allows user to query ESSENCE and fit Bayesian spatio-temporal models to retrieved time-series of emergency department visits. These models can be used for small-area estimation, smoothing, data-imputation, uncertainty estimation, and forecasting. To use this application, the user must have valid ESSENCE credentials with appropriate permissions for the requested data.
+
+  Within the application, users start by generating a query or loading a previously saved query. Currently queries are limited to county-level geographic resolution and either daily or weekly temporal resolution.  If needed, users can also import a dataset containing covariates.  They can then specify a model either by choosing the general purpose default or by modifying individual model components and priors. Model structure is highly customizable and allows for specification of the model family (poisson, negative binomial, binomial or beta-binomial) as well as individual model components such as fixed effects, unstructured random effects, and spatially and temporally structured random effects to account for spatial and temporal correlations in the data. Then the model is fitted using approximate Bayesian inference via the integrated nested Laplace approximation.  Users can explore the results using interactive maps, plots, and tables. Available model outputs include statistics of the posterior distribution at each point in space and time (e.g. means, medians, quantiles) as well as exceedance probabilities.
+
+  Models are fitted using a package called epistemic (https://github.com/mpanaggio/epistemic) which serves as a wrapper to the R-INLA package (https://r-inla.org/). See the documentation for those packages for more information about model customization.  
+
+author: Mark Panaggio and Luke Mullany
+contributors: Howard Burkom and Victoria Rose
