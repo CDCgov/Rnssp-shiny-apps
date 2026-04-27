@@ -216,7 +216,7 @@ check_epistemic <- function(
     } else {
       if(local==TRUE) {
         cat("Installing 'epistemic' package from local tarball")
-        install.packages("src/epistemic_1_6_0.tar.gz", method="source")
+        install.packages("src/epistemic_1_6_0.tar.gz", method="source",lib = Sys.getenv("R_LIBS_USER"))
       } else {
         cat("Installing 'epistemic' package from github repo")
         remotes::install_github(
