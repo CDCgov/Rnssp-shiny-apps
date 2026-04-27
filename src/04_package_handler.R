@@ -128,7 +128,7 @@ check_installable <- function(ac = accessible_packages(), auto_install=FALSE) {
     "rlang", "reactable", "viridisLite", "rstudioapi", "magrittr", 
     "readr","ggplot2", "dplyr", "tidyr", "stringr", "htmltools", "jsonlite",
     "xml2", "zip", "purrr", "htmlwidgets", "RColorBrewer", 
-    "leaflet.extras", "leafpop"
+    "leaflet.extras", "leafpop", "remotes"
   )
   
   missing_required <- ir_pkgs[!ir_pkgs %in% ac]
@@ -174,7 +174,7 @@ check_epistemic <- function(
         "Either auto-install, or manually install epistemic version",
         epistemic_min,
         "or higher from github using pak, devtools, or",
-        "remotes (e.g. pak::pak(\"mpanaggio/epistemic\")"
+        "remotes (e.g. remotes::install_github(\"mpanaggio/epistemic\")"
       ))
     }
     # Then we install with pak; however this might also not be available
@@ -183,11 +183,11 @@ check_epistemic <- function(
         "epistemic (version: ", epistemic_min, "or higher) is not installed",
         "and must be installed from github, but pak package is not available.",
         " Install pak, devtools or remotes, and",
-        "manually install using pak::pak(\"mpanaggio/epistemic\") or similar."
+        "manually install using remotes::install_github(\"mpanaggio/epistemic\") or similar."
       ))
     } else {
       cat("Installing 'epistemic' package from github repo")
-      pak::pak("mpanaggio/epistemic")
+      remotes::install_github("mpanaggio/epistemic")
     }
   }
   invisible()

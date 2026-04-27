@@ -5,7 +5,7 @@
 #################################################################
 # Run the package handler
 source("src/04_package_handler.R")
-INLA_MIN = "25.04.09" # Set the minimum INLA version
+INLA_MIN = "24.06.27" # Set the minimum INLA version
 EPISTEMIC_MIN = "1.6.0" # Set the minimum epistemic version
 AUTO_INSTALL = TRUE # Should missing (installable) packages be auto-installed?
 TEST_INLA = TRUE # Should we test inla?
