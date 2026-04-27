@@ -8,7 +8,8 @@ package_handler <- function(
     inla_min = "24.06.27",
     epistemic_min = "1.6.0",
     auto_install=FALSE, 
-    test_inla = TRUE
+    test_inla = TRUE,
+    local_epistemic=FALSE
 ) {
   
   options(timeout = 600)
@@ -42,7 +43,8 @@ package_handler <- function(
     epistemic_min = epistemic_min,
     ac = accessible_pkgs, 
     auto_install=auto_install, 
-    repos=custom_repo
+    repos=custom_repo, 
+    local = local_epistemic
   )
   
   # If we have made it this far, all dependencies are available
@@ -179,7 +181,8 @@ check_epistemic <- function(
   epistemic_min, 
   ac=accessible_packages(),
   auto_install = FALSE,
-  repos = getOption("repos")
+  repos = getOption("repos"), 
+  local=FALSE
 ) {
   
   # set a null current version
@@ -209,12 +212,17 @@ check_epistemic <- function(
         "manually install using remotes::install_github(\"mpanaggio/epistemic\") or similar."
       ))
     } else {
-      cat("Installing 'epistemic' package from github repo")
-      remotes::install_github(
-        repo = "mpanaggio/epistemic",
-        repos = repos,
-        lib = Sys.getenv("R_LIBS_USER")
-      )
+      if(local==TRUE) {
+        cat("Installing 'epistemic' package from local tarball")
+        install.packages("src/epistemic_1_6_0.tar.gz", method="source")
+      } else {
+        cat("Installing 'epistemic' package from github repo")
+        remotes::install_github(
+          repo = "mpanaggio/epistemic",
+          repos = repos,
+          lib = Sys.getenv("R_LIBS_USER")
+        )
+      }
     }
   }
   invisible()
