@@ -9,13 +9,15 @@ INLA_MIN = "24.06.27" # Set the minimum INLA version
 EPISTEMIC_MIN = "1.6.0" # Set the minimum epistemic version
 AUTO_INSTALL = TRUE # Should missing (installable) packages be auto-installed?
 TEST_INLA = TRUE # Should we test inla?
+LOCAL_EPISTEMIC = TRUE # Should we install epistemic from a local tarball?
 
 # Call the handler; any failures will abort app launch
 package_handler(
   inla_min = INLA_MIN,
   epistemic_min = EPISTEMIC_MIN,
   auto_install = AUTO_INSTALL, 
-  test_inla = TEST_INLA
+  test_inla = TEST_INLA,
+  local_epistemic = LOCAL_EPISTEMIC
 )
 #################################################################
 
