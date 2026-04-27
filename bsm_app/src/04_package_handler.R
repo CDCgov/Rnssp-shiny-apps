@@ -26,15 +26,13 @@ package_handler <- function(
   # 5. check other non-automatically installed packages
   check_other_uninstallable(ac = accessible_pkgs)
 
-  if(auto_install) custom_repos <- c(
-    getOption("repos"),
-    base_cran = "http://cran.rstudio.com/"
-  )
+  custom_repo <- "http://cran.rstudio.com/"
+  
   # 6. check installable packages
   check_installable(
     ac = accessible_pkgs, 
     auto_install = auto_install, 
-    repos = custom_repos
+    repos = custom_repo
   )
 
   # 7. check episemtic
@@ -42,7 +40,7 @@ package_handler <- function(
     epistemic_min = epistemic_min,
     ac = accessible_pkgs, 
     auto_install=auto_install, 
-    repos=custom_repos
+    repos=custom_repo
   )
   
   # If we have made it this far, all dependencies are available
@@ -89,7 +87,8 @@ test_inla <- function() {
   failure_msg <- "a test run of INLA failed; app cannot be run"
   tryCatch(
     {
-      x <- rnorm(100); y <- 1 + 2*x + rnorm(100)
+      set.seed(8783)
+      x <- rnorm(50); y <- 1 + 2*x + rnorm(50)
       fit <- INLA::inla(y ~ x, data = data.frame(x = x, y = y))
       if(!fit$ok) stop(failure_msg)
     },
