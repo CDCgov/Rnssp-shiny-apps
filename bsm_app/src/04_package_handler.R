@@ -26,11 +26,24 @@ package_handler <- function(
   # 5. check other non-automatically installed packages
   check_other_uninstallable(ac = accessible_pkgs)
 
+  if(auto_install) custom_repos <- c(
+    getOption("repos"),
+    base_cran = "http://cran.rstudio.com/"
+  )
   # 6. check installable packages
-  check_installable(ac = accessible_pkgs, auto_install = auto_install)
+  check_installable(
+    ac = accessible_pkgs, 
+    auto_install = auto_install, 
+    repos = custom_repos
+  )
 
   # 7. check episemtic
-  check_epistemic(epistemic_min = epistemic_min,ac = accessible_pkgs, auto_install=auto_install)
+  check_epistemic(
+    epistemic_min = epistemic_min,
+    ac = accessible_pkgs, 
+    auto_install=auto_install, 
+    repos=custom_repos
+  )
   
   # If we have made it this far, all dependencies are available
   cat("all required packages and version(s) found.")
@@ -119,7 +132,11 @@ check_other_uninstallable <- function(ac = accessible_packages()) {
   invisible()
 }
 
-check_installable <- function(ac = accessible_packages(), auto_install=FALSE) {
+check_installable <- function(
+    ac = accessible_packages(),
+    auto_install=FALSE,
+    repos = getOption("repos")
+) {
   
   # Okay, this is the remainder of the dependencies
   ir_pkgs <- c(
@@ -141,7 +158,7 @@ check_installable <- function(ac = accessible_packages(), auto_install=FALSE) {
         "\n"
       )
       # Now install these!
-      for(mr in missing_required) install.packages(mr)
+      for(mr in missing_required) install.packages(mr, repos=repos)
     } else {
       # auto-install declined; just report to user
       stop(
@@ -156,7 +173,8 @@ check_installable <- function(ac = accessible_packages(), auto_install=FALSE) {
 check_epistemic <- function(
   epistemic_min, 
   ac=accessible_packages(),
-  auto_install = FALSE
+  auto_install = FALSE,
+  repos = getOption("repos")
 ) {
   
   # set a null current version
@@ -187,7 +205,7 @@ check_epistemic <- function(
       ))
     } else {
       cat("Installing 'epistemic' package from github repo")
-      remotes::install_github("mpanaggio/epistemic")
+      remotes::install_github("mpanaggio/epistemic",repos = repos)
     }
   }
   invisible()
