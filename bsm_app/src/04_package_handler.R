@@ -148,7 +148,7 @@ check_installable <- function(
     "rlang", "reactable", "viridisLite", "rstudioapi", "magrittr", 
     "readr","ggplot2", "dplyr", "tidyr", "stringr", "htmltools", "jsonlite",
     "xml2", "zip", "purrr", "htmlwidgets", "RColorBrewer", 
-    "leaflet.extras", "leafpop", "remotes"
+    "leaflet.extras", "leafpop", "remotes", "pracma", "glue"
   )
   
   missing_required <- ir_pkgs[!ir_pkgs %in% ac]
