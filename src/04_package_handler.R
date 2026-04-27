@@ -12,7 +12,9 @@ package_handler <- function(
     local_epistemic=FALSE
 ) {
   
-  options(timeout = 600)
+  # 0. some global options
+  options(timeout = 600) # - extend the timeout
+  .libPaths(c(.Library, .libPaths())) # prioritize the global library
   
   # 1. get accessible packages
   accessible_pkgs <- accessible_packages()
