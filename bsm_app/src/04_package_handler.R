@@ -11,6 +11,8 @@ package_handler <- function(
     test_inla = TRUE
 ) {
   
+  options(timeout = 600)
+  
   # 1. get accessible packages
   accessible_pkgs <- accessible_packages()
 
@@ -157,7 +159,11 @@ check_installable <- function(
         "\n"
       )
       # Now install these!
-      for(mr in missing_required) install.packages(mr, repos=repos)
+      for(mr in missing_required) install.packages(
+        mr, 
+        repos=repos,
+        lib = Sys.getenv("R_LIBS_USER")
+      )
     } else {
       # auto-install declined; just report to user
       stop(
@@ -204,7 +210,11 @@ check_epistemic <- function(
       ))
     } else {
       cat("Installing 'epistemic' package from github repo")
-      remotes::install_github("mpanaggio/epistemic",repos = repos)
+      remotes::install_github(
+        repo = "mpanaggio/epistemic",
+        repos = repos,
+        lib = Sys.getenv("R_LIBS_USER")
+      )
     }
   }
   invisible()
