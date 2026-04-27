@@ -7,7 +7,9 @@
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0) y else x
 
 counties_by_state <- function(states) {
-  county_to_fips<-data.table::fread("data/Region_to_fips_mapping_dup_fips.csv")
+  county_to_fips<-data.table::data.table(
+    readRDS("data/Region_to_fips_mapping_dup_fips.rds")
+  )
   county_to_fips$countyfips<-str_pad(as.character(county_to_fips$countyfips), width = 5, pad = "0", side = "left")
   pattern <- paste0("^(", paste(states, collapse = "|"), ")_")
   df <- county_to_fips |> filter(str_detect(Region, pattern))  |>
@@ -16,13 +18,17 @@ counties_by_state <- function(states) {
 }
 
 counties_from_fips <- function(fips) {
-  county_to_fips<-data.table::fread("data/Region_to_fips_mapping_dup_fips.csv")
+  county_to_fips<-data.table::data.table(
+    readRDS("data/Region_to_fips_mapping_dup_fips.rds")
+  )
   county_to_fips$countyfips<-str_pad(as.character(county_to_fips$countyfips), width = 5, pad = "0", side = "left")
   county_to_fips[CJ(countyfips = fips), on="countyfips", Region]
 }
 
 add_fips<-function(data){
-  county_to_fips<-data.table::fread("data/Region_to_fips_mapping_dup_fips.csv", colClasses = "character")
+  county_to_fips<-data.table::data.table(
+    readRDS("data/Region_to_fips_mapping_dup_fips.rds")
+  )
   county_to_fips[, countyfips:=stringr::str_pad(countyfips, width = 5, pad = "0", side = "left")]
   setnames(county_to_fips, old="Region", new="region")
   data <- merge(data, county_to_fips, by="region")
