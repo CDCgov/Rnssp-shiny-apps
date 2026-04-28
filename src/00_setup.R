@@ -26,8 +26,6 @@ package_handler(
 library(shiny)
 library(shinyjs)
 library(cli)
-library(data.table)
-library(bslib)
 library(bsicons)
 library(ggplot2)
 library(dplyr)
@@ -48,6 +46,8 @@ library(leafpop)
 library(reactable)
 library(viridisLite)
 library(sf)
+library(bslib)
+library(data.table)
 library(epistemic)
 
 

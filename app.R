@@ -17,7 +17,7 @@ ui <- function(request) {
     return(tutorial_page_ui())
   }
   
-  page(
+  bslib::page(
     # get theme from the setup file
     theme = THEME,
     global_ui_tags,
