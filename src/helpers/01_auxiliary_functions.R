@@ -8,7 +8,7 @@
 
 counties_by_state <- function(states) {
   county_to_fips<-data.table::data.table(
-    readRDS("data/Region_to_fips_mapping_dup_fips.rds")
+    readRDS("data/region_to_fips_mapping_dup_fips.rds")
   )
   county_to_fips$countyfips<-str_pad(as.character(county_to_fips$countyfips), width = 5, pad = "0", side = "left")
   pattern <- paste0("^(", paste(states, collapse = "|"), ")_")
@@ -19,7 +19,7 @@ counties_by_state <- function(states) {
 
 counties_from_fips <- function(fips) {
   county_to_fips<-data.table::data.table(
-    readRDS("data/Region_to_fips_mapping_dup_fips.rds")
+    readRDS("data/region_to_fips_mapping_dup_fips.rds")
   )
   county_to_fips$countyfips<-str_pad(as.character(county_to_fips$countyfips), width = 5, pad = "0", side = "left")
   county_to_fips[CJ(countyfips = fips), on="countyfips", Region]
@@ -27,7 +27,7 @@ counties_from_fips <- function(fips) {
 
 add_fips<-function(data){
   county_to_fips<-data.table::data.table(
-    readRDS("data/Region_to_fips_mapping_dup_fips.rds")
+    readRDS("data/region_to_fips_mapping_dup_fips.rds")
   )
   county_to_fips[, countyfips:=stringr::str_pad(countyfips, width = 5, pad = "0", side = "left")]
   setnames(county_to_fips, old="Region", new="region")
