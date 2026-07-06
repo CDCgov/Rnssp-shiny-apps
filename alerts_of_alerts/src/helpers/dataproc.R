@@ -14,7 +14,7 @@
 
 get_proc_data <- function(input, output, session) {
   reactive({
-    ccdd_list <- "https://essence.syndromicsurveillance.org/nssp_essence/servlet/SyndromeDefinitionsServlet_CCDD?action=getCCDDTerms" %>%
+    ccdd_list <- "https://essence2.syndromicsurveillance.org/nssp_essence/servlet/SyndromeDefinitionsServlet_CCDD?action=getCCDDTerms" %>%
       get_api_data(profile = myProfile) %>%
       pluck("categories") %>%
       select(category) %>%
@@ -47,7 +47,7 @@ get_proc_data <- function(input, output, session) {
       pull(category_api)
     
     url <- paste0(
-      "https://essence.syndromicsurveillance.org/nssp_essence/api/timeSeries?nonZeroComposite=false",
+      "https://essence2.syndromicsurveillance.org/nssp_essence/api/timeSeries?nonZeroComposite=false",
       "&startMonth=january&graphOnly=true&datasource=va_hosp&startDate=",
       format(input$startDate %m-% days(13), "%d%b%Y"),
       "&medicalGroupingSystem=essencesyndromes&userId=2362&multiStratVal=facilityfips&endDate=",
