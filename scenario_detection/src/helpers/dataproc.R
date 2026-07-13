@@ -98,7 +98,7 @@ process_and_overwrite_codes_column <- function(df, column_name) {
 # Helper to load ICD code to Diagnosis description mapping
 read_in_codes_description <- function(input) {
   # Retrieve DD mapping
-  dds <- "https://essence.syndromicsurveillance.org/nssp_essence/api/datasources/va_hosp/fields/icdDiagnosis" %>%
+  dds <- "https://essence2.syndromicsurveillance.org/nssp_essence/api/datasources/va_hosp/fields/icdDiagnosis" %>%
     get_api_data(profile = myProfile) %>%
     pluck("values") %>%
     pull("display") %>%
@@ -116,7 +116,7 @@ read_in_codes_description <- function(input) {
   icd_list['none'] = 'none'
   
   # Retrieve CCSR mapping
-  ccsr_cats <- "https://essence.syndromicsurveillance.org/nssp_essence/api/datasources/va_hosp/fields/icdCCSR" %>%
+  ccsr_cats <- "https://essence2.syndromicsurveillance.org/nssp_essence/api/datasources/va_hosp/fields/icdCCSR" %>%
     get_api_data(profile = myProfile) %>%
     pluck("values")
   
@@ -145,7 +145,7 @@ fips_for_url <- function(state) {
 
 # Read in data details from API and process/parse for assignment to master df
 readin_and_process_master_df <- function(state, date) {
-  url <-paste0("https://essence.syndromicsurveillance.org/nssp_essence/api/",
+  url <-paste0("https://essence2.syndromicsurveillance.org/nssp_essence/api/",
                "dataDetails/csv?geography=",
                as.character(state_helper[state_helper$state_name == state,]$state_abbr),
                "&datasource=va_hosp&medicalGroupingSystem=essencesyndromes",
